@@ -1,7 +1,3 @@
-// Copyright 2019 Fredrik Portström <https://portstrom.com>
-// This is free software distributed under the terms specified in
-// the file LICENSE at the top-level directory of this distribution.
-
 pub fn parse_external_link_end<'a>(
     state: &mut crate::State<'a>,
     start_position: usize,
@@ -38,7 +34,6 @@ pub fn parse_external_link_start(state: &mut crate::State, configuration: &crate
     {
         Err(_) => {
             state.scan_position = scheme_start_position;
-            return;
         }
         Ok(_) => {
             state.push_open_node(crate::OpenNodeType::ExternalLink, scheme_start_position);

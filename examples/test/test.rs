@@ -1,7 +1,3 @@
-// Copyright 2019 Fredrik Portström <https://portstrom.com>
-// This is free software distributed under the terms specified in
-// the file LICENSE at the top-level directory of this distribution.
-
 use crate::test_cases::TEST_CASES;
 
 pub fn run_test(configuration: &parse_wiki_text::Configuration) {
@@ -29,23 +25,23 @@ pub fn run_test(configuration: &parse_wiki_text::Configuration) {
         if let Some(window) = test_cases.windows(2).find(|window| window[0] >= window[1]) {
             panic!("Sort: {:#?}", window);
         }
-        output += &format!("<a href=#{}>", title.replace(" ", "_"));
+        output += &format!("<a href=#{}>", title.replace(' ', "_"));
         output += title;
         output += &format!(" <span>{}</span></a>", test_cases.len());
     }
     output += "</div><div style=\"flex:1 1 200px;overflow:auto\">";
     for (title, test_cases) in TEST_CASES {
-        output += &format!("<h1 id={}>", title.replace(" ", "_"));
+        output += &format!("<h1 id={}>", title.replace(' ', "_"));
         output += title;
         output += "</h1>";
         for wiki_text in *test_cases {
             output += "<div><pre>";
             output += &wiki_text
-                .replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace("\t", "<span>⭾</span>")
-                .replace("\n", "<span>⏎</span>\n")
-                .replace(" ", "<span>·</span>")
+                .replace('&', "&amp;")
+                .replace('<', "&lt;")
+                .replace('\t', "<span>⭾</span>")
+                .replace('\n', "<span>⏎</span>\n")
+                .replace(' ', "<span>·</span>")
                 .replace("</span><span>", "");
             match std::panic::catch_unwind(|| configuration.parse(wiki_text)) {
                 Err(_) => {
@@ -55,8 +51,8 @@ pub fn run_test(configuration: &parse_wiki_text::Configuration) {
                 Ok(result) => {
                     output += "</pre><hr><pre>";
                     output += &format!("{:#?}", result)
-                        .replace("&", "&amp;")
-                        .replace("<", "&lt;");
+                        .replace('&', "&amp;")
+                        .replace('<', "&lt;");
                     output += "</pre></div>";
                 }
             }

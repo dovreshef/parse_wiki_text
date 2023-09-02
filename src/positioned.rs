@@ -1,7 +1,3 @@
-// Copyright 2019 Fredrik Portström <https://portstrom.com>
-// This is free software distributed under the terms specified in
-// the file LICENSE at the top-level directory of this distribution.
-
 macro_rules! impl_positioned {
     ($type:tt) => {
         impl<'a> crate::Positioned for crate::$type<'a> {

@@ -1,7 +1,3 @@
-// Copyright 2019 Fredrik Portström <https://portstrom.com>
-// This is free software distributed under the terms specified in
-// the file LICENSE at the top-level directory of this distribution.
-
 pub fn parse_link_end<'a>(
     state: &mut crate::State<'a>,
     configuration: &crate::Configuration,
@@ -139,14 +135,14 @@ fn parse_end(
                 end: trail_end_position,
                 ordinal: vec![],
                 start: state.scan_position,
-                target: state.wiki_text[target_start_position..target_end_position].trim_right(),
+                target: state.wiki_text[target_start_position..target_end_position].trim_end(),
             });
         }
         Some(crate::Namespace::File) => {
             state.nodes.push(crate::Node::Image {
                 end: trail_end_position,
                 start: state.scan_position,
-                target: state.wiki_text[target_start_position..target_end_position].trim_right(),
+                target: state.wiki_text[target_start_position..target_end_position].trim_end(),
                 text: vec![],
             });
         }
@@ -177,7 +173,7 @@ fn parse_end(
             state.nodes.push(crate::Node::Link {
                 end: trail_end_position,
                 start: state.scan_position,
-                target: &state.wiki_text[target_start_position..target_end_position].trim_right(),
+                target: state.wiki_text[target_start_position..target_end_position].trim_end(),
                 text,
             });
         }

@@ -1,7 +1,3 @@
-// Copyright 2019 Fredrik Portström <https://portstrom.com>
-// This is free software distributed under the terms specified in
-// the file LICENSE at the top-level directory of this distribution.
-
 pub fn parse_beginning_of_line(state: &mut crate::State, line_start_position: Option<usize>) {
     let mut has_line_break = false;
     'a: loop {
@@ -214,13 +210,13 @@ fn parse_preformatted_end_of_line(state: &mut crate::State) {
                 Some(b'|')
                     if state.get_byte(position + 1) == Some(b'}')
                         && state.stack.len() > 1
-                        && match state.stack.get(state.stack.len() - 2) {
+                        && matches!(
+                            state.stack.get(state.stack.len() - 2),
                             Some(crate::OpenNode {
                                 type_: crate::OpenNodeType::Table { .. },
                                 ..
-                            }) => true,
-                            _ => false,
-                        } =>
+                            })
+                        ) =>
                 {
                     break;
                 }

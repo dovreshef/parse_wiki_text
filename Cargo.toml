@@ -1,9 +1,12 @@
 [package]
-authors = ["Fredrik Portström <https://portstrom.com>"]
+authors = [
+    "Fredrik Portström <https://portstrom.com>",
+    "Dov Reshef <reshef.dov@gmail.com>"
+]
 description = "Parse wiki text from Mediawiki into a tree of elements"
-edition = "2018"
+edition = "2021"
 license-file = "MIT"
 name = "parse_wiki_text"
 readme = "readme.md"
-repository = "https://github.com/portstrom/parse_wiki_text"
+repository = "https://github.com/dovreshef/parse_wiki_text"
 version = "0.1.5"

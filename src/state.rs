@@ -1,7 +1,3 @@
-// Copyright 2019 Fredrik Portström <https://portstrom.com>
-// This is free software distributed under the terms specified in
-// the file LICENSE at the top-level directory of this distribution.
-
 pub struct OpenNode<'a> {
     pub nodes: Vec<crate::Node<'a>>,
     pub start: usize,
@@ -90,7 +86,7 @@ impl<'a> State<'a> {
         let scan_position = self.scan_position;
         self.flush(scan_position);
         self.stack.push(OpenNode {
-            nodes: std::mem::replace(&mut self.nodes, vec![]),
+            nodes: std::mem::take(&mut self.nodes),
             start: scan_position,
             type_,
         });
@@ -152,22 +148,17 @@ pub fn flush<'a>(
 }
 
 pub fn skip_whitespace_backwards(wiki_text: &str, mut position: usize) -> usize {
-    while position > 0
-        && match wiki_text.as_bytes()[position - 1] {
-            b'\t' | b'\n' | b' ' => true,
-            _ => false,
-        }
-    {
+    while position > 0 && matches!(wiki_text.as_bytes()[position - 1], b'\t' | b'\n' | b' ') {
         position -= 1;
     }
     position
 }
 
 pub fn skip_whitespace_forwards(wiki_text: &str, mut position: usize) -> usize {
-    while match wiki_text.as_bytes().get(position).cloned() {
-        Some(b'\t') | Some(b'\n') | Some(b' ') => true,
-        _ => false,
-    } {
+    while matches!(
+        wiki_text.as_bytes().get(position).cloned(),
+        Some(b'\t') | Some(b'\n') | Some(b' ')
+    ) {
         position += 1;
     }
     position

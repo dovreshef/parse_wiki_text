@@ -1,7 +1,3 @@
-// Copyright 2019 Fredrik Portström <https://portstrom.com>
-// This is free software distributed under the terms specified in
-// the file LICENSE at the top-level directory of this distribution.
-
 #[must_use]
 pub fn parse<'a>(configuration: &crate::Configuration, wiki_text: &'a str) -> crate::Output<'a> {
     let mut state = crate::State {
@@ -75,13 +71,13 @@ pub fn parse<'a>(configuration: &crate::Configuration, wiki_text: &'a str) -> cr
             }
             Some(b'!')
                 if state.get_byte(state.scan_position + 1) == Some(b'!')
-                    && match state.stack.last() {
+                    && matches!(
+                        state.stack.last(),
                         Some(crate::OpenNode {
                             type_: crate::OpenNodeType::Table(..),
                             ..
-                        }) => true,
-                        _ => false,
-                    } =>
+                        })
+                    ) =>
             {
                 crate::table::parse_heading_cell(&mut state);
             }
@@ -132,7 +128,7 @@ pub fn parse<'a>(configuration: &crate::Configuration, wiki_text: &'a str) -> cr
                     if state.get_byte(state.scan_position + 1) == Some(b']') {
                         crate::link::parse_link_end(
                             &mut state,
-                            &configuration,
+                            configuration,
                             start,
                             nodes,
                             namespace,

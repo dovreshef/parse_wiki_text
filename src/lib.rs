@@ -1,7 +1,3 @@
-// Copyright 2019 Fredrik Portström <https://portstrom.com>
-// This is free software distributed under the terms specified in
-// the file LICENSE at the top-level directory of this distribution.
-
 //! Parse wiki text from Mediawiki into a tree of elements.
 //!
 //! # Introduction
@@ -131,13 +127,23 @@ mod warning;
 
 pub use configuration::ConfigurationSource;
 use configuration::Namespace;
-use state::{OpenNode, OpenNodeType, State};
+use state::{
+    OpenNode,
+    OpenNodeType,
+    State,
+};
 use std::{
     borrow::Cow,
-    collections::{HashMap, HashSet},
+    collections::{
+        HashMap,
+        HashSet,
+    },
 };
 use trie::Trie;
-pub use warning::{Warning, WarningMessage};
+pub use warning::{
+    Warning,
+    WarningMessage,
+};
 
 /// Configuration for the parser.
 ///
