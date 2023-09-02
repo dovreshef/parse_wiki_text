@@ -1,8 +1,8 @@
-// Copyright 2018 Fredrik Portström <https://portstrom.com>
+// Copyright 2019 Fredrik Portström <https://portstrom.com>
 // This is free software distributed under the terms specified in
 // the file LICENSE at the top-level directory of this distribution.
 
-pub fn parse_comment(state: &mut ::State) {
+pub fn parse_comment(state: &mut crate::State) {
     let start_position = state.scan_position;
     let mut position = start_position;
     state.flush(position);
@@ -28,14 +28,14 @@ pub fn parse_comment(state: &mut ::State) {
     }
     state.flushed_position = position;
     state.scan_position = position;
-    state.nodes.push(::Node::Comment {
+    state.nodes.push(crate::Node::Comment {
         end: state.scan_position,
         start: start_position,
     });
 }
 
 fn parse_end_tag(
-    state: &mut ::State,
+    state: &mut crate::State,
     comment_start_position: usize,
     tag_start_position: usize,
 ) -> bool {
@@ -57,13 +57,13 @@ fn parse_end_tag(
     } + 1;
     let tag_name = &state.wiki_text[tag_name_start_position..tag_name_end_position];
     let tag_name = if tag_name.as_bytes().iter().all(u8::is_ascii_lowercase) {
-        ::Cow::Borrowed(tag_name)
+        crate::Cow::Borrowed(tag_name)
     } else {
         tag_name.to_ascii_lowercase().into()
     };
     let mut matched_node_index = None;
     for (open_node_index, open_node) in state.stack.iter().enumerate().rev() {
-        if let ::OpenNodeType::Tag { name, .. } = &open_node.type_ {
+        if let crate::OpenNodeType::Tag { name, .. } = &open_node.type_ {
             if name == &tag_name {
                 matched_node_index = Some(open_node_index);
                 break;
@@ -74,29 +74,29 @@ fn parse_end_tag(
         None => false,
         Some(open_node_index) => {
             if open_node_index < state.stack.len() - 1 {
-                state.warnings.push(::Warning {
+                state.warnings.push(crate::Warning {
                     end: tag_end_position,
-                    message: ::WarningMessage::MissingEndTagRewinding,
+                    message: crate::WarningMessage::MissingEndTagRewinding,
                     start: tag_start_position,
                 });
                 state.stack.truncate(open_node_index + 2);
                 let open_node = state.stack.pop().unwrap();
                 state.rewind(open_node.nodes, open_node.start);
             } else {
-                state.warnings.push(::Warning {
+                state.warnings.push(crate::Warning {
                     end: tag_end_position,
-                    message: ::WarningMessage::EndTagInComment,
+                    message: crate::WarningMessage::EndTagInComment,
                     start: tag_start_position,
                 });
-                state.nodes.push(::Node::Comment {
+                state.nodes.push(crate::Node::Comment {
                     end: tag_start_position,
                     start: comment_start_position,
                 });
                 let open_node = state.stack.pop().unwrap();
                 state.flushed_position = tag_end_position;
                 state.scan_position = state.flushed_position;
-                let nodes = ::std::mem::replace(&mut state.nodes, open_node.nodes);
-                state.nodes.push(::Node::Tag {
+                let nodes = std::mem::replace(&mut state.nodes, open_node.nodes);
+                state.nodes.push(crate::Node::Tag {
                     end: state.scan_position,
                     name: tag_name,
                     nodes,

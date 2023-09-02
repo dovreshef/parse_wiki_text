@@ -1,8 +1,8 @@
-// Copyright 2018 Fredrik Portström <https://portstrom.com>
+// Copyright 2019 Fredrik Portström <https://portstrom.com>
 // This is free software distributed under the terms specified in
 // the file LICENSE at the top-level directory of this distribution.
 
-pub fn parse_end_tag(state: &mut ::State, configuration: &::Configuration) {
+pub fn parse_end_tag(state: &mut crate::State, configuration: &crate::Configuration) {
     let start_position = state.scan_position;
     let tag_name_start_position = start_position + 2;
     let mut tag_name_end_position = tag_name_start_position;
@@ -18,20 +18,20 @@ pub fn parse_end_tag(state: &mut ::State, configuration: &::Configuration) {
     }
     let tag_name = &state.wiki_text[tag_name_start_position..tag_name_end_position];
     let tag_name = if tag_name.as_bytes().iter().all(u8::is_ascii_lowercase) {
-        ::Cow::Borrowed(tag_name)
+        crate::Cow::Borrowed(tag_name)
     } else {
         tag_name.to_ascii_lowercase().into()
     };
     match configuration.tag_name_map.get(&tag_name as &str) {
         None => {
             state.scan_position = tag_name_start_position;
-            state.warnings.push(::Warning {
+            state.warnings.push(crate::Warning {
                 end: tag_name_end_position,
-                message: ::WarningMessage::UnrecognizedTagName,
+                message: crate::WarningMessage::UnrecognizedTagName,
                 start: tag_name_start_position,
             });
         }
-        Some(::TagClass::ExtensionTag) => {
+        Some(crate::TagClass::ExtensionTag) => {
             let mut tag_end_position = tag_name_end_position;
             loop {
                 match state.get_byte(tag_end_position) {
@@ -39,9 +39,9 @@ pub fn parse_end_tag(state: &mut ::State, configuration: &::Configuration) {
                     Some(b'\t') | Some(b'\n') | Some(b' ') => tag_end_position += 1,
                     _ => {
                         state.scan_position = tag_name_start_position;
-                        state.warnings.push(::Warning {
+                        state.warnings.push(crate::Warning {
                             end: tag_end_position,
-                            message: ::WarningMessage::InvalidTagSyntax,
+                            message: crate::WarningMessage::InvalidTagSyntax,
                             start: start_position,
                         });
                         return;
@@ -50,7 +50,7 @@ pub fn parse_end_tag(state: &mut ::State, configuration: &::Configuration) {
             }
             let mut matched_node_index = None;
             for (open_node_index, open_node) in state.stack.iter().enumerate().rev() {
-                if let ::OpenNodeType::Tag { name, .. } = &open_node.type_ {
+                if let crate::OpenNodeType::Tag { name, .. } = &open_node.type_ {
                     if name == &tag_name {
                         matched_node_index = Some(open_node_index);
                         break;
@@ -60,17 +60,17 @@ pub fn parse_end_tag(state: &mut ::State, configuration: &::Configuration) {
             match matched_node_index {
                 None => {
                     state.scan_position = tag_name_start_position;
-                    state.warnings.push(::Warning {
+                    state.warnings.push(crate::Warning {
                         end: tag_name_end_position,
-                        message: ::WarningMessage::UnexpectedEndTag,
+                        message: crate::WarningMessage::UnexpectedEndTag,
                         start: tag_name_start_position,
                     });
                 }
                 Some(open_node_index) => {
                     if open_node_index < state.stack.len() - 1 {
-                        state.warnings.push(::Warning {
+                        state.warnings.push(crate::Warning {
                             end: tag_end_position,
-                            message: ::WarningMessage::MissingEndTagRewinding,
+                            message: crate::WarningMessage::MissingEndTagRewinding,
                             start: start_position,
                         });
                         state.stack.truncate(open_node_index + 2);
@@ -82,8 +82,8 @@ pub fn parse_end_tag(state: &mut ::State, configuration: &::Configuration) {
                         tag_end_position += 1;
                         state.flushed_position = tag_end_position;
                         state.scan_position = state.flushed_position;
-                        let nodes = ::std::mem::replace(&mut state.nodes, open_node.nodes);
-                        state.nodes.push(::Node::Tag {
+                        let nodes = std::mem::replace(&mut state.nodes, open_node.nodes);
+                        state.nodes.push(crate::Node::Tag {
                             end: state.scan_position,
                             name: tag_name,
                             nodes,
@@ -93,15 +93,15 @@ pub fn parse_end_tag(state: &mut ::State, configuration: &::Configuration) {
                 }
             }
         }
-        Some(::TagClass::Tag) => {
+        Some(crate::TagClass::Tag) => {
             let mut tag_end_position = tag_name_end_position;
             loop {
                 match state.get_byte(tag_end_position) {
                     None => {
                         state.scan_position = tag_name_start_position;
-                        state.warnings.push(::Warning {
+                        state.warnings.push(crate::Warning {
                             end: tag_name_end_position,
-                            message: ::WarningMessage::InvalidTagSyntax,
+                            message: crate::WarningMessage::InvalidTagSyntax,
                             start: tag_name_start_position,
                         });
                         return;
@@ -113,7 +113,7 @@ pub fn parse_end_tag(state: &mut ::State, configuration: &::Configuration) {
             state.flush(start_position);
             state.flushed_position = tag_end_position + 1;
             state.scan_position = state.flushed_position;
-            state.nodes.push(::Node::EndTag {
+            state.nodes.push(crate::Node::EndTag {
                 end: state.scan_position,
                 name: tag_name,
                 start: start_position,
@@ -122,7 +122,7 @@ pub fn parse_end_tag(state: &mut ::State, configuration: &::Configuration) {
     }
 }
 
-pub fn parse_start_tag(state: &mut ::State, configuration: &::Configuration) {
+pub fn parse_start_tag(state: &mut crate::State, configuration: &crate::Configuration) {
     let start_position = state.scan_position;
     let tag_name_start_position = start_position + 1;
     let tag_name_end_position = match state.wiki_text.as_bytes()[tag_name_start_position..]
@@ -137,16 +137,16 @@ pub fn parse_start_tag(state: &mut ::State, configuration: &::Configuration) {
     };
     let tag_name = &state.wiki_text[tag_name_start_position..tag_name_end_position];
     let tag_name = if tag_name.as_bytes().iter().all(u8::is_ascii_lowercase) {
-        ::Cow::Borrowed(tag_name)
+        crate::Cow::Borrowed(tag_name)
     } else {
         tag_name.to_ascii_lowercase().into()
     };
     match configuration.tag_name_map.get(&tag_name as &str) {
         None => {
             state.scan_position = tag_name_start_position;
-            state.warnings.push(::Warning {
+            state.warnings.push(crate::Warning {
                 end: tag_name_end_position,
-                message: ::WarningMessage::UnrecognizedTagName,
+                message: crate::WarningMessage::UnrecognizedTagName,
                 start: tag_name_start_position,
             });
         }
@@ -157,21 +157,21 @@ pub fn parse_start_tag(state: &mut ::State, configuration: &::Configuration) {
         {
             None => {
                 state.scan_position = tag_name_start_position;
-                state.warnings.push(::Warning {
+                state.warnings.push(crate::Warning {
                     end: tag_name_end_position,
-                    message: ::WarningMessage::InvalidTagSyntax,
+                    message: crate::WarningMessage::InvalidTagSyntax,
                     start: state.scan_position,
                 });
             }
             Some(tag_end_position) => {
                 let tag_end_position = tag_name_end_position + tag_end_position + 1;
                 match tag_class {
-                    ::TagClass::ExtensionTag => {
+                    crate::TagClass::ExtensionTag => {
                         if state.get_byte(tag_end_position - 2) == Some(b'/') {
                             state.flush(start_position);
                             state.flushed_position = tag_end_position;
                             state.scan_position = state.flushed_position;
-                            state.nodes.push(::Node::Tag {
+                            state.nodes.push(crate::Node::Tag {
                                 end: tag_end_position,
                                 name: tag_name,
                                 nodes: vec![],
@@ -189,18 +189,18 @@ pub fn parse_start_tag(state: &mut ::State, configuration: &::Configuration) {
                                 }
                                 _ => {
                                     state.push_open_node(
-                                        ::OpenNodeType::Tag { name: tag_name },
+                                        crate::OpenNodeType::Tag { name: tag_name },
                                         tag_end_position,
                                     );
                                 }
                             }
                         }
                     }
-                    ::TagClass::Tag => {
+                    crate::TagClass::Tag => {
                         state.flush(start_position);
                         state.flushed_position = tag_end_position;
                         state.scan_position = state.flushed_position;
-                        state.nodes.push(::Node::StartTag {
+                        state.nodes.push(crate::Node::StartTag {
                             end: tag_end_position,
                             name: tag_name,
                             start: start_position,
@@ -213,31 +213,34 @@ pub fn parse_start_tag(state: &mut ::State, configuration: &::Configuration) {
 }
 
 fn parse_plain_text_tag<'a>(
-    state: &mut ::State<'a>,
+    state: &mut crate::State<'a>,
     position_before_start_tag: usize,
     position_after_start_tag: usize,
-    start_tag_name: &::Cow<'a, str>,
+    start_tag_name: &crate::Cow<'a, str>,
 ) {
     loop {
         match state.get_byte(state.scan_position) {
             None => {
                 state.scan_position = position_before_start_tag + 1;
-                state.warnings.push(::Warning {
+                state.warnings.push(crate::Warning {
                     end: position_after_start_tag,
-                    message: ::WarningMessage::MissingEndTagRewinding,
+                    message: crate::WarningMessage::MissingEndTagRewinding,
                     start: position_before_start_tag,
                 });
                 break;
             }
-            Some(b'<') => if state.get_byte(state.scan_position + 1) == Some(b'/')
-                && parse_plain_text_end_tag(
-                    state,
-                    position_before_start_tag,
-                    position_after_start_tag,
-                    &start_tag_name,
-                ) {
-                break;
-            },
+            Some(b'<') => {
+                if state.get_byte(state.scan_position + 1) == Some(b'/')
+                    && parse_plain_text_end_tag(
+                        state,
+                        position_before_start_tag,
+                        position_after_start_tag,
+                        &start_tag_name,
+                    )
+                {
+                    break;
+                }
+            }
             _ => {}
         }
         state.scan_position += 1;
@@ -245,10 +248,10 @@ fn parse_plain_text_tag<'a>(
 }
 
 fn parse_plain_text_end_tag<'a>(
-    state: &mut ::State<'a>,
+    state: &mut crate::State<'a>,
     position_before_start_tag: usize,
     position_after_start_tag: usize,
-    start_tag_name: &::Cow<'a, str>,
+    start_tag_name: &crate::Cow<'a, str>,
 ) -> bool {
     let position_before_end_tag = state.scan_position;
     let position_before_end_tag_name = state.scan_position + 2;
@@ -270,13 +273,13 @@ fn parse_plain_text_end_tag<'a>(
     } + 1;
     let end_tag_name = &state.wiki_text[position_before_end_tag_name..position_after_end_tag_name];
     let end_tag_name = if end_tag_name.as_bytes().iter().all(u8::is_ascii_lowercase) {
-        ::Cow::Borrowed(end_tag_name)
+        crate::Cow::Borrowed(end_tag_name)
     } else {
         end_tag_name.to_ascii_lowercase().into()
     };
     if *start_tag_name == end_tag_name {
         let nodes = if position_after_start_tag < position_before_end_tag {
-            vec![::Node::Text {
+            vec![crate::Node::Text {
                 end: position_before_end_tag,
                 start: position_after_start_tag,
                 value: &state.wiki_text[position_after_start_tag..position_before_end_tag],
@@ -286,7 +289,7 @@ fn parse_plain_text_end_tag<'a>(
         };
         state.flushed_position = position_after_end_tag;
         state.scan_position = position_after_end_tag;
-        state.nodes.push(::Node::Tag {
+        state.nodes.push(crate::Node::Tag {
             end: position_after_end_tag,
             name: end_tag_name,
             nodes,
@@ -296,7 +299,7 @@ fn parse_plain_text_end_tag<'a>(
     }
     let mut found = false;
     for open_node in &state.stack {
-        if let ::OpenNodeType::Tag { name, .. } = &open_node.type_ {
+        if let crate::OpenNodeType::Tag { name, .. } = &open_node.type_ {
             if name == &end_tag_name {
                 found = true;
                 break;
@@ -304,9 +307,9 @@ fn parse_plain_text_end_tag<'a>(
         }
     }
     if found {
-        state.warnings.push(::Warning {
+        state.warnings.push(crate::Warning {
             end: position_before_end_tag,
-            message: ::WarningMessage::MissingEndTagRewinding,
+            message: crate::WarningMessage::MissingEndTagRewinding,
             start: position_before_start_tag,
         });
         state.scan_position = position_before_start_tag + 1;

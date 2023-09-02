@@ -1,8 +1,8 @@
-// Copyright 2018 Fredrik Portström <https://portstrom.com>
+// Copyright 2019 Fredrik Portström <https://portstrom.com>
 // This is free software distributed under the terms specified in
 // the file LICENSE at the top-level directory of this distribution.
 
-pub fn parse_beginning_of_line(state: &mut ::State, line_start_position: Option<usize>) {
+pub fn parse_beginning_of_line(state: &mut crate::State, line_start_position: Option<usize>) {
     let mut has_line_break = false;
     'a: loop {
         match state.get_byte(state.scan_position) {
@@ -24,9 +24,9 @@ pub fn parse_beginning_of_line(state: &mut ::State, line_start_position: Option<
             }
             Some(b'\n') => {
                 if has_line_break {
-                    state.warnings.push(::Warning {
+                    state.warnings.push(crate::Warning {
                         end: state.scan_position + 1,
-                        message: ::WarningMessage::RepeatedEmptyLine,
+                        message: crate::WarningMessage::RepeatedEmptyLine,
                         start: state.scan_position,
                     });
                 }
@@ -42,7 +42,7 @@ pub fn parse_beginning_of_line(state: &mut ::State, line_start_position: Option<
                         Some(b'\n') => break,
                         Some(b'\t') | Some(b' ') => state.scan_position += 1,
                         Some(b'{') if state.get_byte(state.scan_position + 1) == Some(b'|') => {
-                            ::table::start_table(state, line_start_position);
+                            crate::table::start_table(state, line_start_position);
                             return;
                         }
                         Some(_) => {
@@ -51,7 +51,7 @@ pub fn parse_beginning_of_line(state: &mut ::State, line_start_position: Option<
                                 state.flush(position);
                             }
                             state.flushed_position = state.scan_position;
-                            state.push_open_node(::OpenNodeType::Preformatted, start_position);
+                            state.push_open_node(crate::OpenNodeType::Preformatted, start_position);
                             return;
                         }
                     }
@@ -63,8 +63,8 @@ pub fn parse_beginning_of_line(state: &mut ::State, line_start_position: Option<
                     state.flush(position);
                 }
                 state.flushed_position = state.scan_position;
-                while ::list::parse_list_item_start(state) {}
-                ::list::skip_spaces(state);
+                while crate::list::parse_list_item_start(state) {}
+                crate::list::skip_spaces(state);
                 return;
             }
             Some(b'-') => {
@@ -81,7 +81,7 @@ pub fn parse_beginning_of_line(state: &mut ::State, line_start_position: Option<
                     while state.get_byte(state.scan_position) == Some(b'-') {
                         state.scan_position += 1;
                     }
-                    state.nodes.push(::Node::HorizontalDivider {
+                    state.nodes.push(crate::Node::HorizontalDivider {
                         end: state.scan_position,
                         start,
                     });
@@ -91,6 +91,7 @@ pub fn parse_beginning_of_line(state: &mut ::State, line_start_position: Option<
                             b'\n' => {
                                 state.scan_position += 1;
                                 state.skip_empty_lines();
+                                break;
                             }
                             _ => break,
                         }
@@ -105,12 +106,12 @@ pub fn parse_beginning_of_line(state: &mut ::State, line_start_position: Option<
                     let position = state.skip_whitespace_backwards(position);
                     state.flush(position);
                 }
-                ::heading::parse_heading_start(state);
+                crate::heading::parse_heading_start(state);
                 return;
             }
             Some(b'{') => {
                 if state.get_byte(state.scan_position + 1) == Some(b'|') {
-                    ::table::start_table(state, line_start_position);
+                    crate::table::start_table(state, line_start_position);
                     return;
                 }
                 break;
@@ -120,85 +121,87 @@ pub fn parse_beginning_of_line(state: &mut ::State, line_start_position: Option<
     }
     match line_start_position {
         None => state.flushed_position = state.scan_position,
-        Some(position) => if has_line_break {
-            let flush_position = state.skip_whitespace_backwards(position);
-            state.flush(flush_position);
-            state.nodes.push(::Node::ParagraphBreak {
-                end: state.scan_position,
-                start: position,
-            });
-            state.flushed_position = state.scan_position;
-        },
+        Some(position) => {
+            if has_line_break {
+                let flush_position = state.skip_whitespace_backwards(position);
+                state.flush(flush_position);
+                state.nodes.push(crate::Node::ParagraphBreak {
+                    end: state.scan_position,
+                    start: position,
+                });
+                state.flushed_position = state.scan_position;
+            }
+        }
     }
 }
 
-pub fn parse_end_of_line(state: &mut ::State) {
+pub fn parse_end_of_line(state: &mut crate::State) {
     match state.stack.last() {
         None => {
             let position = state.scan_position;
             state.scan_position += 1;
             parse_beginning_of_line(state, Some(position));
         }
-        Some(::OpenNode {
-            type_: ::OpenNodeType::DefinitionList { .. },
+        Some(crate::OpenNode {
+            type_: crate::OpenNodeType::DefinitionList { .. },
             ..
         })
-        | Some(::OpenNode {
-            type_: ::OpenNodeType::OrderedList { .. },
+        | Some(crate::OpenNode {
+            type_: crate::OpenNodeType::OrderedList { .. },
             ..
         })
-        | Some(::OpenNode {
-            type_: ::OpenNodeType::UnorderedList { .. },
+        | Some(crate::OpenNode {
+            type_: crate::OpenNodeType::UnorderedList { .. },
             ..
         }) => {
-            ::list::parse_list_end_of_line(state);
+            crate::list::parse_list_end_of_line(state);
         }
-        Some(::OpenNode {
-            type_: ::OpenNodeType::ExternalLink { .. },
+        Some(crate::OpenNode {
+            type_: crate::OpenNodeType::ExternalLink { .. },
             ..
         }) => {
-            ::external_link::parse_external_link_end_of_line(state);
+            crate::external_link::parse_external_link_end_of_line(state);
         }
-        Some(::OpenNode {
-            type_: ::OpenNodeType::Heading { .. },
+        Some(crate::OpenNode {
+            type_: crate::OpenNodeType::Heading { .. },
             ..
         }) => {
-            ::heading::parse_heading_end(state);
+            crate::heading::parse_heading_end(state);
         }
-        Some(::OpenNode {
-            type_: ::OpenNodeType::Link { .. },
+        Some(crate::OpenNode {
+            type_: crate::OpenNodeType::Link { .. },
             ..
         })
-        | Some(::OpenNode {
-            type_: ::OpenNodeType::Parameter { .. },
+        | Some(crate::OpenNode {
+            type_: crate::OpenNodeType::Parameter { .. },
             ..
         })
-        | Some(::OpenNode {
-            type_: ::OpenNodeType::Tag { .. },
+        | Some(crate::OpenNode {
+            type_: crate::OpenNodeType::Tag { .. },
             ..
         })
-        | Some(::OpenNode {
-            type_: ::OpenNodeType::Template { .. },
+        | Some(crate::OpenNode {
+            type_: crate::OpenNodeType::Template { .. },
             ..
         }) => {
             state.scan_position += 1;
         }
-        Some(::OpenNode {
-            type_: ::OpenNodeType::Preformatted,
+        Some(crate::OpenNode {
+            type_: crate::OpenNodeType::Preformatted,
             ..
         }) => {
             parse_preformatted_end_of_line(state);
         }
-        Some(::OpenNode {
-            type_: ::OpenNodeType::Table { .. },
+        Some(crate::OpenNode {
+            type_: crate::OpenNodeType::Table { .. },
             ..
         }) => {
-            ::table::parse_table_end_of_line(state, true);
+            crate::table::parse_table_end_of_line(state, true);
         }
     }
 }
 
-fn parse_preformatted_end_of_line(state: &mut ::State) {
+fn parse_preformatted_end_of_line(state: &mut crate::State) {
     if state.get_byte(state.scan_position + 1) == Some(b' ') {
         let mut position = state.scan_position + 2;
         loop {
@@ -209,10 +212,11 @@ fn parse_preformatted_end_of_line(state: &mut ::State) {
                     break;
                 }
                 Some(b'|')
-                    if state.get_byte(position + 1) == Some(b'}') && state.stack.len() > 1
+                    if state.get_byte(position + 1) == Some(b'}')
+                        && state.stack.len() > 1
                         && match state.stack.get(state.stack.len() - 2) {
-                            Some(::OpenNode {
-                                type_: ::OpenNodeType::Table { .. },
+                            Some(crate::OpenNode {
+                                type_: crate::OpenNodeType::Table { .. },
                                 ..
                             }) => true,
                             _ => false,
@@ -234,8 +238,8 @@ fn parse_preformatted_end_of_line(state: &mut ::State) {
     let position = state.skip_whitespace_backwards(state.scan_position);
     state.flush(position);
     state.scan_position += 1;
-    let nodes = ::std::mem::replace(&mut state.nodes, open_node.nodes);
-    state.nodes.push(::Node::Preformatted {
+    let nodes = std::mem::replace(&mut state.nodes, open_node.nodes);
+    state.nodes.push(crate::Node::Preformatted {
         end: state.scan_position,
         nodes,
         start: open_node.start,

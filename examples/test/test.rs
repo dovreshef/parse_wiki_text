@@ -1,10 +1,10 @@
-// Copyright 2018 Fredrik Portström <https://portstrom.com>
+// Copyright 2019 Fredrik Portström <https://portstrom.com>
 // This is free software distributed under the terms specified in
 // the file LICENSE at the top-level directory of this distribution.
 
-use test_cases::TEST_CASES;
+use crate::test_cases::TEST_CASES;
 
-pub fn run_test(configuration: &::parse_wiki_text::Configuration) {
+pub fn run_test(configuration: &parse_wiki_text::Configuration) {
     let mut output = concat!(
         "<title>Parse Wiki Text test cases</title>",
         "<style>",
@@ -47,7 +47,7 @@ pub fn run_test(configuration: &::parse_wiki_text::Configuration) {
                 .replace("\n", "<span>⏎</span>\n")
                 .replace(" ", "<span>·</span>")
                 .replace("</span><span>", "");
-            match ::std::panic::catch_unwind(|| configuration.parse(wiki_text)) {
+            match std::panic::catch_unwind(|| configuration.parse(wiki_text)) {
                 Err(_) => {
                     eprintln!("Panic with wiki text {:?}", wiki_text);
                     output += "</pre><hr>panic</div>";
@@ -63,8 +63,8 @@ pub fn run_test(configuration: &::parse_wiki_text::Configuration) {
         }
     }
     output += "</div>";
-    if let Err(error) = ::std::fs::write("report.html", output) {
+    if let Err(error) = std::fs::write("report.html", output) {
         eprintln!("Failed to write report: {}", error);
-        ::std::process::exit(1);
+        std::process::exit(1);
     }
 }

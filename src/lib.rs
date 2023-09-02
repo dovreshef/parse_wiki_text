@@ -1,4 +1,4 @@
-// Copyright 2018 Fredrik Portström <https://portstrom.com>
+// Copyright 2019 Fredrik Portström <https://portstrom.com>
 // This is free software distributed under the terms specified in
 // the file LICENSE at the top-level directory of this distribution.
 
@@ -133,7 +133,8 @@ pub use configuration::ConfigurationSource;
 use configuration::Namespace;
 use state::{OpenNode, OpenNodeType, State};
 use std::{
-    borrow::Cow, collections::{HashMap, HashSet},
+    borrow::Cow,
+    collections::{HashMap, HashSet},
 };
 use trie::Trie;
 pub use warning::{Warning, WarningMessage};
@@ -145,10 +146,10 @@ pub struct Configuration {
     character_entities: Trie<char>,
     link_trail_character_set: HashSet<char>,
     magic_words: Trie<()>,
-    namespaces: Trie<::Namespace>,
+    namespaces: Trie<Namespace>,
     protocols: Trie<()>,
     redirect_magic_words: Trie<()>,
-    tag_name_map: HashMap<String, ::TagClass>,
+    tag_name_map: HashMap<String, TagClass>,
 }
 
 /// List item of a definition list.
