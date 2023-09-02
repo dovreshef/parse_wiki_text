@@ -1,14 +1,14 @@
-<!--
+--
 Copyright 2019 Fredrik Portström <https://portstrom.com>
 This is free software distributed under the terms specified in
 the file LICENSE at the top-level directory of this distribution.
--->
+--
+
+![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/dovreshef/parse_wiki_text/.github%2Fworkflows%2Fci.yml)
 
 # Parse Wiki Text
 
 Parse wiki text from Mediawiki into a tree of elements.
-
-![Parse Wiki Text](https://portstrom.com/parse_wiki_text.svg)
 
 ## Introduction
 
