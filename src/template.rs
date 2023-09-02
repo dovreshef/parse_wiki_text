@@ -1,9 +1,22 @@
-pub fn parse_parameter_name_end(state: &mut crate::State) {
+use crate::{
+    state::{
+        self,
+        OpenNode,
+        OpenNodeType,
+        State,
+    },
+    Node,
+    Parameter,
+    Warning,
+    WarningMessage,
+};
+
+pub fn parse_parameter_name_end(state: &mut State) {
     let stack_length = state.stack.len();
     if stack_length > 0 {
-        if let crate::OpenNode {
+        if let OpenNode {
             type_:
-                crate::OpenNodeType::Template {
+                OpenNodeType::Template {
                     name: Some(_),
                     parameters,
                 },
@@ -13,16 +26,14 @@ pub fn parse_parameter_name_end(state: &mut crate::State) {
             let parameters_length = parameters.len();
             let name = &mut parameters[parameters_length - 1].name;
             if name.is_none() {
-                crate::state::flush(
+                state::flush(
                     &mut state.nodes,
                     state.flushed_position,
-                    crate::state::skip_whitespace_backwards(state.wiki_text, state.scan_position),
+                    state::skip_whitespace_backwards(state.wiki_text, state.scan_position),
                     state.wiki_text,
                 );
-                state.flushed_position = crate::state::skip_whitespace_forwards(
-                    state.wiki_text,
-                    state.scan_position + 1,
-                );
+                state.flushed_position =
+                    state::skip_whitespace_forwards(state.wiki_text, state.scan_position + 1);
                 state.scan_position = state.flushed_position;
                 *name = Some(std::mem::take(&mut state.nodes));
                 return;
@@ -32,16 +43,16 @@ pub fn parse_parameter_name_end(state: &mut crate::State) {
     state.scan_position += 1;
 }
 
-pub fn parse_parameter_separator(state: &mut crate::State) {
+pub fn parse_parameter_separator(state: &mut State) {
     match state.stack.last_mut() {
-        Some(crate::OpenNode {
-            type_: crate::OpenNodeType::Parameter { default, name },
+        Some(OpenNode {
+            type_: OpenNodeType::Parameter { default, name },
             ..
         }) => {
             if name.is_none() {
                 let position =
-                    crate::state::skip_whitespace_backwards(state.wiki_text, state.scan_position);
-                crate::state::flush(
+                    state::skip_whitespace_backwards(state.wiki_text, state.scan_position);
+                state::flush(
                     &mut state.nodes,
                     state.flushed_position,
                     position,
@@ -49,16 +60,16 @@ pub fn parse_parameter_separator(state: &mut crate::State) {
                 );
                 *name = Some(std::mem::take(&mut state.nodes));
             } else {
-                crate::state::flush(
+                state::flush(
                     &mut state.nodes,
                     state.flushed_position,
                     state.scan_position,
                     state.wiki_text,
                 );
                 *default = Some(std::mem::take(&mut state.nodes));
-                state.warnings.push(crate::Warning {
+                state.warnings.push(Warning {
                     end: state.scan_position + 1,
-                    message: crate::WarningMessage::UselessTextInParameter,
+                    message: WarningMessage::UselessTextInParameter,
                     start: state.scan_position,
                 });
             }
@@ -69,23 +80,23 @@ pub fn parse_parameter_separator(state: &mut crate::State) {
     }
 }
 
-pub fn parse_template_end(state: &mut crate::State) {
+pub fn parse_template_end(state: &mut State) {
     match state.stack.last() {
-        Some(crate::OpenNode {
-            type_: crate::OpenNodeType::Parameter { .. },
+        Some(OpenNode {
+            type_: OpenNodeType::Parameter { .. },
             ..
         }) => match state.stack.pop() {
-            Some(crate::OpenNode {
+            Some(OpenNode {
                 nodes,
                 start,
-                type_: crate::OpenNodeType::Parameter { default, name },
+                type_: OpenNodeType::Parameter { default, name },
             }) => {
                 if state.get_byte(state.scan_position + 2) == Some(b'}') {
                     if let Some(name) = name {
                         let start_position = state.scan_position;
                         state.flush(start_position);
                         let nodes = std::mem::replace(&mut state.nodes, nodes);
-                        state.nodes.push(crate::Node::Parameter {
+                        state.nodes.push(Node::Parameter {
                             default: Some(default.unwrap_or(nodes)),
                             end: state.scan_position,
                             name,
@@ -95,7 +106,7 @@ pub fn parse_template_end(state: &mut crate::State) {
                         let start_position = state.skip_whitespace_backwards(state.scan_position);
                         state.flush(start_position);
                         let nodes = std::mem::replace(&mut state.nodes, nodes);
-                        state.nodes.push(crate::Node::Parameter {
+                        state.nodes.push(Node::Parameter {
                             default: None,
                             end: state.scan_position,
                             name: nodes,
@@ -105,9 +116,9 @@ pub fn parse_template_end(state: &mut crate::State) {
                     state.scan_position += 3;
                     state.flushed_position = state.scan_position;
                 } else {
-                    state.warnings.push(crate::Warning {
+                    state.warnings.push(Warning {
                         end: state.scan_position + 2,
-                        message: crate::WarningMessage::UnexpectedEndTagRewinding,
+                        message: WarningMessage::UnexpectedEndTagRewinding,
                         start: state.scan_position,
                     });
                     state.rewind(nodes, start);
@@ -115,15 +126,15 @@ pub fn parse_template_end(state: &mut crate::State) {
             }
             _ => unreachable!(),
         },
-        Some(crate::OpenNode {
-            type_: crate::OpenNodeType::Template { .. },
+        Some(OpenNode {
+            type_: OpenNodeType::Template { .. },
             ..
         }) => match state.stack.pop() {
-            Some(crate::OpenNode {
+            Some(OpenNode {
                 nodes,
                 start,
                 type_:
-                    crate::OpenNodeType::Template {
+                    OpenNodeType::Template {
                         name,
                         mut parameters,
                     },
@@ -142,7 +153,7 @@ pub fn parse_template_end(state: &mut crate::State) {
                         name
                     }
                 };
-                state.nodes.push(crate::Node::Template {
+                state.nodes.push(Node::Template {
                     end: state.scan_position,
                     name,
                     parameters,
@@ -158,24 +169,24 @@ pub fn parse_template_end(state: &mut crate::State) {
                 .rev()
                 .skip(1)
                 .any(|item| match item.type_ {
-                    crate::OpenNodeType::Parameter { .. } => {
+                    OpenNodeType::Parameter { .. } => {
                         state.get_byte(state.scan_position + 2) == Some(b'}')
                     }
-                    crate::OpenNodeType::Template { .. } => true,
+                    OpenNodeType::Template { .. } => true,
                     _ => false,
                 })
             {
-                state.warnings.push(crate::Warning {
+                state.warnings.push(Warning {
                     end: state.scan_position + 2,
-                    message: crate::WarningMessage::UnexpectedEndTagRewinding,
+                    message: WarningMessage::UnexpectedEndTagRewinding,
                     start: state.scan_position,
                 });
                 let open_node = state.stack.pop().unwrap();
                 state.rewind(open_node.nodes, open_node.start);
             } else {
-                state.warnings.push(crate::Warning {
+                state.warnings.push(Warning {
                     end: state.scan_position + 2,
-                    message: crate::WarningMessage::UnexpectedEndTag,
+                    message: WarningMessage::UnexpectedEndTag,
                     start: state.scan_position,
                 });
                 state.scan_position += 2;
@@ -184,22 +195,21 @@ pub fn parse_template_end(state: &mut crate::State) {
     }
 }
 
-pub fn parse_template_separator(state: &mut crate::State) {
+pub fn parse_template_separator(state: &mut State) {
     match state.stack.last_mut() {
-        Some(crate::OpenNode {
-            type_: crate::OpenNodeType::Template { name, parameters },
+        Some(OpenNode {
+            type_: OpenNodeType::Template { name, parameters },
             ..
         }) => {
-            let position =
-                crate::state::skip_whitespace_backwards(state.wiki_text, state.scan_position);
-            crate::state::flush(
+            let position = state::skip_whitespace_backwards(state.wiki_text, state.scan_position);
+            state::flush(
                 &mut state.nodes,
                 state.flushed_position,
                 position,
                 state.wiki_text,
             );
             state.flushed_position =
-                crate::state::skip_whitespace_forwards(state.wiki_text, state.scan_position + 1);
+                state::skip_whitespace_forwards(state.wiki_text, state.scan_position + 1);
             state.scan_position = state.flushed_position;
             if name.is_none() {
                 *name = Some(std::mem::take(&mut state.nodes));
@@ -209,7 +219,7 @@ pub fn parse_template_separator(state: &mut crate::State) {
                 parameter.end = position;
                 parameter.value = std::mem::take(&mut state.nodes);
             }
-            parameters.push(crate::Parameter {
+            parameters.push(Parameter {
                 end: 0,
                 name: None,
                 start: state.scan_position,
@@ -220,12 +230,12 @@ pub fn parse_template_separator(state: &mut crate::State) {
     }
 }
 
-pub fn parse_template_start(state: &mut crate::State) {
+pub fn parse_template_start(state: &mut State) {
     let scan_position = state.scan_position;
     if state.get_byte(state.scan_position + 2) == Some(b'{') {
         let position = state.skip_whitespace_forwards(scan_position + 3);
         state.push_open_node(
-            crate::OpenNodeType::Parameter {
+            OpenNodeType::Parameter {
                 default: None,
                 name: None,
             },
@@ -234,7 +244,7 @@ pub fn parse_template_start(state: &mut crate::State) {
     } else {
         let position = state.skip_whitespace_forwards(scan_position + 2);
         state.push_open_node(
-            crate::OpenNodeType::Template {
+            OpenNodeType::Template {
                 name: None,
                 parameters: vec![],
             },

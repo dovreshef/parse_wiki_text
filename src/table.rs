@@ -1,18 +1,35 @@
-use crate::state::TableState;
+use crate::{
+    line,
+    state::{
+        self,
+        OpenNode,
+        OpenNodeType,
+        State,
+        Table,
+        TableState,
+    },
+    Node,
+    TableCaption,
+    TableCell,
+    TableCellType,
+    TableRow,
+    Warning,
+    WarningMessage,
+};
 
-pub fn parse_heading_cell(state: &mut crate::State) {
+pub fn parse_heading_cell(state: &mut State) {
     let table = get_table(&mut state.stack);
     let position_before_token = state.scan_position;
-    if let crate::state::TableState::HeadingFirstLine = table.state {
-        let end = crate::state::skip_whitespace_backwards(state.wiki_text, position_before_token);
-        crate::state::flush(
+    if let state::TableState::HeadingFirstLine = table.state {
+        let end = state::skip_whitespace_backwards(state.wiki_text, position_before_token);
+        state::flush(
             &mut state.nodes,
             state.flushed_position,
             end,
             state.wiki_text,
         );
         if table.rows.is_empty() {
-            table.rows.push(crate::TableRow {
+            table.rows.push(TableRow {
                 attributes: vec![],
                 cells: vec![],
                 end,
@@ -20,12 +37,12 @@ pub fn parse_heading_cell(state: &mut crate::State) {
             });
         }
         let row = table.rows.last_mut().unwrap();
-        row.cells.push(crate::TableCell {
+        row.cells.push(TableCell {
             attributes: table.child_element_attributes.take(),
             content: std::mem::take(&mut state.nodes),
             end,
             start: table.start,
-            type_: crate::TableCellType::Heading,
+            type_: TableCellType::Heading,
         });
         row.end = end;
         table.start = position_before_token;
@@ -42,7 +59,7 @@ pub fn parse_heading_cell(state: &mut crate::State) {
     }
 }
 
-pub fn parse_table_end_of_line(state: &mut crate::State, paragraph_break_possible: bool) {
+pub fn parse_table_end_of_line(state: &mut State, paragraph_break_possible: bool) {
     let position_before_line_break = state.scan_position;
     let mut position_after_line_break = position_before_line_break + 1;
     let mut scan_position = position_after_line_break;
@@ -114,7 +131,7 @@ pub fn parse_table_end_of_line(state: &mut crate::State, paragraph_break_possibl
 }
 
 fn change_state(
-    state: &mut crate::State,
+    state: &mut State,
     target_table_state: TableState,
     position_before_line_break: usize,
     position_before_token: usize,
@@ -128,9 +145,9 @@ fn change_state(
         }
     }
     let table = get_table(&mut state.stack);
-    let end = crate::state::skip_whitespace_backwards(state.wiki_text, position_before_line_break);
+    let end = state::skip_whitespace_backwards(state.wiki_text, position_before_line_break);
     if paragraph_break_possible {
-        crate::state::flush(
+        state::flush(
             &mut state.nodes,
             state.flushed_position,
             end,
@@ -139,15 +156,15 @@ fn change_state(
     }
     match table.state {
         TableState::Before => {
-            state.warnings.push(crate::Warning {
+            state.warnings.push(Warning {
                 end: position_before_line_break,
-                message: crate::WarningMessage::StrayTextInTable,
+                message: WarningMessage::StrayTextInTable,
                 start: table.start,
             });
             table.before.append(&mut std::mem::take(&mut state.nodes));
         }
         TableState::CaptionFirstLine | TableState::CaptionRemainder => {
-            table.captions.push(crate::TableCaption {
+            table.captions.push(TableCaption {
                 attributes: table.child_element_attributes.take(),
                 content: std::mem::take(&mut state.nodes),
                 end,
@@ -156,7 +173,7 @@ fn change_state(
         }
         TableState::CellFirstLine | TableState::CellRemainder => {
             if table.rows.is_empty() {
-                table.rows.push(crate::TableRow {
+                table.rows.push(TableRow {
                     attributes: vec![],
                     cells: vec![],
                     end,
@@ -164,18 +181,18 @@ fn change_state(
                 });
             }
             let row = table.rows.last_mut().unwrap();
-            row.cells.push(crate::TableCell {
+            row.cells.push(TableCell {
                 attributes: table.child_element_attributes.take(),
                 content: std::mem::take(&mut state.nodes),
                 end,
                 start: table.start,
-                type_: crate::TableCellType::Ordinary,
+                type_: TableCellType::Ordinary,
             });
             row.end = end;
         }
         TableState::HeadingFirstLine | TableState::HeadingRemainder => {
             if table.rows.is_empty() {
-                table.rows.push(crate::TableRow {
+                table.rows.push(TableRow {
                     attributes: vec![],
                     cells: vec![],
                     end,
@@ -183,17 +200,17 @@ fn change_state(
                 });
             }
             let row = table.rows.last_mut().unwrap();
-            row.cells.push(crate::TableCell {
+            row.cells.push(TableCell {
                 attributes: table.child_element_attributes.take(),
                 content: std::mem::take(&mut state.nodes),
                 end,
                 start: table.start,
-                type_: crate::TableCellType::Heading,
+                type_: TableCellType::Heading,
             });
             row.end = position_before_line_break;
         }
         TableState::Row => {
-            table.rows.push(crate::TableRow {
+            table.rows.push(TableRow {
                 attributes: std::mem::take(&mut state.nodes),
                 cells: vec![],
                 end,
@@ -211,14 +228,14 @@ fn change_state(
 }
 
 fn parse_end(
-    state: &mut crate::State,
+    state: &mut State,
     position_before_line_break: usize,
     position_after_token: usize,
     paragraph_break_possible: bool,
 ) {
     let open_node = state.stack.pop().unwrap();
     match open_node.type_ {
-        crate::OpenNodeType::Table(crate::state::Table {
+        OpenNodeType::Table(state::Table {
             mut attributes,
             mut before,
             mut captions,
@@ -228,22 +245,22 @@ fn parse_end(
             state: table_state,
         }) => {
             if paragraph_break_possible {
-                state.flush(crate::state::skip_whitespace_backwards(
+                state.flush(state::skip_whitespace_backwards(
                     state.wiki_text,
                     position_before_line_break,
                 ));
             }
             match table_state {
                 TableState::Before => {
-                    state.warnings.push(crate::Warning {
+                    state.warnings.push(Warning {
                         end: position_before_line_break,
-                        message: crate::WarningMessage::StrayTextInTable,
+                        message: WarningMessage::StrayTextInTable,
                         start,
                     });
                     before.append(&mut std::mem::replace(&mut state.nodes, open_node.nodes));
                 }
                 TableState::CaptionFirstLine | TableState::CaptionRemainder => {
-                    captions.push(crate::TableCaption {
+                    captions.push(TableCaption {
                         attributes: child_element_attributes.take(),
                         content: std::mem::replace(&mut state.nodes, open_node.nodes),
                         end: position_before_line_break,
@@ -252,7 +269,7 @@ fn parse_end(
                 }
                 TableState::CellFirstLine | TableState::CellRemainder => {
                     if rows.is_empty() {
-                        rows.push(crate::TableRow {
+                        rows.push(TableRow {
                             attributes: vec![],
                             cells: vec![],
                             end: 0,
@@ -260,18 +277,18 @@ fn parse_end(
                         });
                     }
                     let row = rows.last_mut().unwrap();
-                    row.cells.push(crate::TableCell {
+                    row.cells.push(TableCell {
                         attributes: child_element_attributes.take(),
                         content: std::mem::replace(&mut state.nodes, open_node.nodes),
                         end: position_before_line_break,
                         start,
-                        type_: crate::TableCellType::Ordinary,
+                        type_: TableCellType::Ordinary,
                     });
                     row.end = position_before_line_break;
                 }
                 TableState::HeadingFirstLine | TableState::HeadingRemainder => {
                     if rows.is_empty() {
-                        rows.push(crate::TableRow {
+                        rows.push(TableRow {
                             attributes: vec![],
                             cells: vec![],
                             end: 0,
@@ -279,17 +296,17 @@ fn parse_end(
                         });
                     }
                     let row = rows.last_mut().unwrap();
-                    row.cells.push(crate::TableCell {
+                    row.cells.push(TableCell {
                         attributes: child_element_attributes.take(),
                         content: std::mem::replace(&mut state.nodes, open_node.nodes),
                         end: position_before_line_break,
                         start,
-                        type_: crate::TableCellType::Heading,
+                        type_: TableCellType::Heading,
                     });
                     row.end = position_before_line_break;
                 }
                 TableState::Row => {
-                    rows.push(crate::TableRow {
+                    rows.push(TableRow {
                         attributes: std::mem::replace(&mut state.nodes, open_node.nodes),
                         cells: vec![],
                         end: position_before_line_break,
@@ -302,7 +319,7 @@ fn parse_end(
             }
             state.scan_position = position_after_token;
             state.nodes.append(&mut before);
-            state.nodes.push(crate::Node::Table {
+            state.nodes.push(Node::Table {
                 attributes,
                 captions,
                 end: state.scan_position,
@@ -327,7 +344,7 @@ fn parse_end(
 }
 
 fn parse_line_break(
-    state: &mut crate::State,
+    state: &mut State,
     position_before_line_break: usize,
     position_after_line_break: usize,
     position_after_token: usize,
@@ -350,16 +367,13 @@ fn parse_line_break(
                 }
             }
             TableState::CellFirstLine => {
-                crate::state::flush(
+                state::flush(
                     &mut state.nodes,
                     state.flushed_position,
-                    crate::state::skip_whitespace_backwards(
-                        state.wiki_text,
-                        position_before_line_break,
-                    ),
+                    state::skip_whitespace_backwards(state.wiki_text, position_before_line_break),
                     state.wiki_text,
                 );
-                state.nodes.push(crate::Node::ParagraphBreak {
+                state.nodes.push(Node::ParagraphBreak {
                     end: position_after_line_break,
                     start: position_before_line_break,
                 });
@@ -369,16 +383,13 @@ fn parse_line_break(
                 state.scan_position = position_after_line_break;
             }
             TableState::HeadingFirstLine => {
-                crate::state::flush(
+                state::flush(
                     &mut state.nodes,
                     state.flushed_position,
-                    crate::state::skip_whitespace_backwards(
-                        state.wiki_text,
-                        position_before_line_break,
-                    ),
+                    state::skip_whitespace_backwards(state.wiki_text, position_before_line_break),
                     state.wiki_text,
                 );
-                state.nodes.push(crate::Node::ParagraphBreak {
+                state.nodes.push(Node::ParagraphBreak {
                     end: position_after_line_break,
                     start: position_before_line_break,
                 });
@@ -391,13 +402,10 @@ fn parse_line_break(
                 state.scan_position = position_before_line_break + 1
             }
             TableState::TableAttributes => {
-                crate::state::flush(
+                state::flush(
                     &mut state.nodes,
                     state.flushed_position,
-                    crate::state::skip_whitespace_backwards(
-                        state.wiki_text,
-                        position_before_line_break,
-                    ),
+                    state::skip_whitespace_backwards(state.wiki_text, position_before_line_break),
                     state.wiki_text,
                 );
                 table.attributes = std::mem::take(&mut state.nodes);
@@ -410,16 +418,13 @@ fn parse_line_break(
                 }
             }
             TableState::Row => {
-                crate::state::flush(
+                state::flush(
                     &mut state.nodes,
                     state.flushed_position,
-                    crate::state::skip_whitespace_backwards(
-                        state.wiki_text,
-                        position_before_line_break,
-                    ),
+                    state::skip_whitespace_backwards(state.wiki_text, position_before_line_break),
                     state.wiki_text,
                 );
-                table.rows.push(crate::TableRow {
+                table.rows.push(TableRow {
                     attributes: std::mem::take(&mut state.nodes),
                     cells: vec![],
                     end: position_before_line_break,
@@ -435,7 +440,7 @@ fn parse_line_break(
             }
         }
     }
-    crate::line::parse_beginning_of_line(
+    line::parse_beginning_of_line(
         state,
         if paragraph_break_possible {
             Some(position_before_line_break)
@@ -445,7 +450,7 @@ fn parse_line_break(
     );
 }
 
-pub fn parse_inline_token(state: &mut crate::State) {
+pub fn parse_inline_token(state: &mut State) {
     let table = get_table(&mut state.stack);
     let position_before_token = state.scan_position;
     if state
@@ -456,16 +461,15 @@ pub fn parse_inline_token(state: &mut crate::State) {
         == Some(b'|')
     {
         match table.state {
-            crate::state::TableState::CaptionFirstLine => {
-                let end =
-                    crate::state::skip_whitespace_backwards(state.wiki_text, position_before_token);
-                crate::state::flush(
+            state::TableState::CaptionFirstLine => {
+                let end = state::skip_whitespace_backwards(state.wiki_text, position_before_token);
+                state::flush(
                     &mut state.nodes,
                     state.flushed_position,
                     end,
                     state.wiki_text,
                 );
-                table.captions.push(crate::TableCaption {
+                table.captions.push(TableCaption {
                     attributes: table.child_element_attributes.take(),
                     content: std::mem::take(&mut state.nodes),
                     end,
@@ -481,17 +485,16 @@ pub fn parse_inline_token(state: &mut crate::State) {
                 }
                 state.flushed_position = state.scan_position;
             }
-            crate::state::TableState::CellFirstLine => {
-                let end =
-                    crate::state::skip_whitespace_backwards(state.wiki_text, position_before_token);
-                crate::state::flush(
+            state::TableState::CellFirstLine => {
+                let end = state::skip_whitespace_backwards(state.wiki_text, position_before_token);
+                state::flush(
                     &mut state.nodes,
                     state.flushed_position,
                     end,
                     state.wiki_text,
                 );
                 if table.rows.is_empty() {
-                    table.rows.push(crate::TableRow {
+                    table.rows.push(TableRow {
                         attributes: vec![],
                         cells: vec![],
                         end,
@@ -499,12 +502,12 @@ pub fn parse_inline_token(state: &mut crate::State) {
                     });
                 }
                 let row = table.rows.last_mut().unwrap();
-                row.cells.push(crate::TableCell {
+                row.cells.push(TableCell {
                     attributes: table.child_element_attributes.take(),
                     content: std::mem::take(&mut state.nodes),
                     end,
                     start: table.start,
-                    type_: crate::TableCellType::Ordinary,
+                    type_: TableCellType::Ordinary,
                 });
                 row.end = end;
                 table.start = position_before_token;
@@ -517,17 +520,16 @@ pub fn parse_inline_token(state: &mut crate::State) {
                 }
                 state.flushed_position = state.scan_position;
             }
-            crate::state::TableState::HeadingFirstLine => {
-                let end =
-                    crate::state::skip_whitespace_backwards(state.wiki_text, position_before_token);
-                crate::state::flush(
+            state::TableState::HeadingFirstLine => {
+                let end = state::skip_whitespace_backwards(state.wiki_text, position_before_token);
+                state::flush(
                     &mut state.nodes,
                     state.flushed_position,
                     end,
                     state.wiki_text,
                 );
                 if table.rows.is_empty() {
-                    table.rows.push(crate::TableRow {
+                    table.rows.push(TableRow {
                         attributes: vec![],
                         cells: vec![],
                         end,
@@ -535,12 +537,12 @@ pub fn parse_inline_token(state: &mut crate::State) {
                     });
                 }
                 let row = table.rows.last_mut().unwrap();
-                row.cells.push(crate::TableCell {
+                row.cells.push(TableCell {
                     attributes: table.child_element_attributes.take(),
                     content: std::mem::take(&mut state.nodes),
                     end,
                     start: table.start,
-                    type_: crate::TableCellType::Heading,
+                    type_: TableCellType::Heading,
                 });
                 row.end = end;
                 table.start = position_before_token;
@@ -557,15 +559,15 @@ pub fn parse_inline_token(state: &mut crate::State) {
         }
     } else {
         match table.state {
-            crate::state::TableState::CaptionFirstLine
-            | crate::state::TableState::CellFirstLine
-            | crate::state::TableState::HeadingFirstLine
+            state::TableState::CaptionFirstLine
+            | state::TableState::CellFirstLine
+            | state::TableState::HeadingFirstLine
                 if table.child_element_attributes.is_none() =>
             {
-                crate::state::flush(
+                state::flush(
                     &mut state.nodes,
                     state.flushed_position,
-                    crate::state::skip_whitespace_backwards(state.wiki_text, position_before_token),
+                    state::skip_whitespace_backwards(state.wiki_text, position_before_token),
                     state.wiki_text,
                 );
                 table.child_element_attributes = Some(std::mem::take(&mut state.nodes));
@@ -583,12 +585,12 @@ pub fn parse_inline_token(state: &mut crate::State) {
     }
 }
 
-pub fn start_table(state: &mut crate::State, position_before_line_break: Option<usize>) {
+pub fn start_table(state: &mut State, position_before_line_break: Option<usize>) {
     if let Some(position) = position_before_line_break {
-        crate::state::flush(
+        state::flush(
             &mut state.nodes,
             state.flushed_position,
-            crate::state::skip_whitespace_backwards(state.wiki_text, position),
+            state::skip_whitespace_backwards(state.wiki_text, position),
             state.wiki_text,
         );
     }
@@ -598,23 +600,23 @@ pub fn start_table(state: &mut crate::State, position_before_line_break: Option<
         position += 1;
     }
     state.push_open_node(
-        crate::OpenNodeType::Table(crate::state::Table {
+        OpenNodeType::Table(state::Table {
             attributes: vec![],
             before: vec![],
             captions: vec![],
             child_element_attributes: None,
             rows: vec![],
             start: 0,
-            state: crate::state::TableState::TableAttributes,
+            state: state::TableState::TableAttributes,
         }),
         position,
     );
 }
 
-fn get_table<'a, 'b>(stack: &'a mut [crate::OpenNode<'b>]) -> &'a mut crate::state::Table<'b> {
+fn get_table<'a, 'b>(stack: &'a mut [OpenNode<'b>]) -> &'a mut Table<'b> {
     match stack.last_mut() {
-        Some(crate::OpenNode {
-            type_: crate::OpenNodeType::Table(table),
+        Some(OpenNode {
+            type_: OpenNodeType::Table(table),
             ..
         }) => table,
         _ => unreachable!(),

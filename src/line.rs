@@ -1,4 +1,19 @@
-pub fn parse_beginning_of_line(state: &mut crate::State, line_start_position: Option<usize>) {
+use crate::{
+    external_link,
+    heading,
+    list,
+    state::{
+        OpenNode,
+        OpenNodeType,
+        State,
+    },
+    table,
+    Node,
+    Warning,
+    WarningMessage,
+};
+
+pub fn parse_beginning_of_line(state: &mut State, line_start_position: Option<usize>) {
     let mut has_line_break = false;
     'a: loop {
         match state.get_byte(state.scan_position) {
@@ -20,9 +35,9 @@ pub fn parse_beginning_of_line(state: &mut crate::State, line_start_position: Op
             }
             Some(b'\n') => {
                 if has_line_break {
-                    state.warnings.push(crate::Warning {
+                    state.warnings.push(Warning {
                         end: state.scan_position + 1,
-                        message: crate::WarningMessage::RepeatedEmptyLine,
+                        message: WarningMessage::RepeatedEmptyLine,
                         start: state.scan_position,
                     });
                 }
@@ -38,7 +53,7 @@ pub fn parse_beginning_of_line(state: &mut crate::State, line_start_position: Op
                         Some(b'\n') => break,
                         Some(b'\t') | Some(b' ') => state.scan_position += 1,
                         Some(b'{') if state.get_byte(state.scan_position + 1) == Some(b'|') => {
-                            crate::table::start_table(state, line_start_position);
+                            table::start_table(state, line_start_position);
                             return;
                         }
                         Some(_) => {
@@ -47,7 +62,7 @@ pub fn parse_beginning_of_line(state: &mut crate::State, line_start_position: Op
                                 state.flush(position);
                             }
                             state.flushed_position = state.scan_position;
-                            state.push_open_node(crate::OpenNodeType::Preformatted, start_position);
+                            state.push_open_node(OpenNodeType::Preformatted, start_position);
                             return;
                         }
                     }
@@ -59,8 +74,8 @@ pub fn parse_beginning_of_line(state: &mut crate::State, line_start_position: Op
                     state.flush(position);
                 }
                 state.flushed_position = state.scan_position;
-                while crate::list::parse_list_item_start(state) {}
-                crate::list::skip_spaces(state);
+                while list::parse_list_item_start(state) {}
+                list::skip_spaces(state);
                 return;
             }
             Some(b'-') => {
@@ -77,7 +92,7 @@ pub fn parse_beginning_of_line(state: &mut crate::State, line_start_position: Op
                     while state.get_byte(state.scan_position) == Some(b'-') {
                         state.scan_position += 1;
                     }
-                    state.nodes.push(crate::Node::HorizontalDivider {
+                    state.nodes.push(Node::HorizontalDivider {
                         end: state.scan_position,
                         start,
                     });
@@ -102,12 +117,12 @@ pub fn parse_beginning_of_line(state: &mut crate::State, line_start_position: Op
                     let position = state.skip_whitespace_backwards(position);
                     state.flush(position);
                 }
-                crate::heading::parse_heading_start(state);
+                heading::parse_heading_start(state);
                 return;
             }
             Some(b'{') => {
                 if state.get_byte(state.scan_position + 1) == Some(b'|') {
-                    crate::table::start_table(state, line_start_position);
+                    table::start_table(state, line_start_position);
                     return;
                 }
                 break;
@@ -121,7 +136,7 @@ pub fn parse_beginning_of_line(state: &mut crate::State, line_start_position: Op
             if has_line_break {
                 let flush_position = state.skip_whitespace_backwards(position);
                 state.flush(flush_position);
-                state.nodes.push(crate::Node::ParagraphBreak {
+                state.nodes.push(Node::ParagraphBreak {
                     end: state.scan_position,
                     start: position,
                 });
@@ -131,73 +146,73 @@ pub fn parse_beginning_of_line(state: &mut crate::State, line_start_position: Op
     }
 }
 
-pub fn parse_end_of_line(state: &mut crate::State) {
+pub fn parse_end_of_line(state: &mut State) {
     match state.stack.last() {
         None => {
             let position = state.scan_position;
             state.scan_position += 1;
             parse_beginning_of_line(state, Some(position));
         }
-        Some(crate::OpenNode {
-            type_: crate::OpenNodeType::DefinitionList { .. },
+        Some(OpenNode {
+            type_: OpenNodeType::DefinitionList { .. },
             ..
         })
-        | Some(crate::OpenNode {
-            type_: crate::OpenNodeType::OrderedList { .. },
+        | Some(OpenNode {
+            type_: OpenNodeType::OrderedList { .. },
             ..
         })
-        | Some(crate::OpenNode {
-            type_: crate::OpenNodeType::UnorderedList { .. },
+        | Some(OpenNode {
+            type_: OpenNodeType::UnorderedList { .. },
             ..
         }) => {
-            crate::list::parse_list_end_of_line(state);
+            list::parse_list_end_of_line(state);
         }
-        Some(crate::OpenNode {
-            type_: crate::OpenNodeType::ExternalLink { .. },
+        Some(OpenNode {
+            type_: OpenNodeType::ExternalLink { .. },
             ..
         }) => {
-            crate::external_link::parse_external_link_end_of_line(state);
+            external_link::parse_external_link_end_of_line(state);
         }
-        Some(crate::OpenNode {
-            type_: crate::OpenNodeType::Heading { .. },
+        Some(OpenNode {
+            type_: OpenNodeType::Heading { .. },
             ..
         }) => {
-            crate::heading::parse_heading_end(state);
+            heading::parse_heading_end(state);
         }
-        Some(crate::OpenNode {
-            type_: crate::OpenNodeType::Link { .. },
+        Some(OpenNode {
+            type_: OpenNodeType::Link { .. },
             ..
         })
-        | Some(crate::OpenNode {
-            type_: crate::OpenNodeType::Parameter { .. },
+        | Some(OpenNode {
+            type_: OpenNodeType::Parameter { .. },
             ..
         })
-        | Some(crate::OpenNode {
-            type_: crate::OpenNodeType::Tag { .. },
+        | Some(OpenNode {
+            type_: OpenNodeType::Tag { .. },
             ..
         })
-        | Some(crate::OpenNode {
-            type_: crate::OpenNodeType::Template { .. },
+        | Some(OpenNode {
+            type_: OpenNodeType::Template { .. },
             ..
         }) => {
             state.scan_position += 1;
         }
-        Some(crate::OpenNode {
-            type_: crate::OpenNodeType::Preformatted,
+        Some(OpenNode {
+            type_: OpenNodeType::Preformatted,
             ..
         }) => {
             parse_preformatted_end_of_line(state);
         }
-        Some(crate::OpenNode {
-            type_: crate::OpenNodeType::Table { .. },
+        Some(OpenNode {
+            type_: OpenNodeType::Table { .. },
             ..
         }) => {
-            crate::table::parse_table_end_of_line(state, true);
+            table::parse_table_end_of_line(state, true);
         }
     }
 }
 
-fn parse_preformatted_end_of_line(state: &mut crate::State) {
+fn parse_preformatted_end_of_line(state: &mut State) {
     if state.get_byte(state.scan_position + 1) == Some(b' ') {
         let mut position = state.scan_position + 2;
         loop {
@@ -212,8 +227,8 @@ fn parse_preformatted_end_of_line(state: &mut crate::State) {
                         && state.stack.len() > 1
                         && matches!(
                             state.stack.get(state.stack.len() - 2),
-                            Some(crate::OpenNode {
-                                type_: crate::OpenNodeType::Table { .. },
+                            Some(OpenNode {
+                                type_: OpenNodeType::Table { .. },
                                 ..
                             })
                         ) =>
@@ -235,7 +250,7 @@ fn parse_preformatted_end_of_line(state: &mut crate::State) {
     state.flush(position);
     state.scan_position += 1;
     let nodes = std::mem::replace(&mut state.nodes, open_node.nodes);
-    state.nodes.push(crate::Node::Preformatted {
+    state.nodes.push(Node::Preformatted {
         end: state.scan_position,
         nodes,
         start: open_node.start,

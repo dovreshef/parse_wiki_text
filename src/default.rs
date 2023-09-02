@@ -1,5 +1,10 @@
-pub fn create_configuration() -> crate::Configuration {
-    crate::Configuration::new(&crate::ConfigurationSource {
+use crate::{
+    Configuration,
+    ConfigurationSource,
+};
+
+pub fn create_configuration() -> Configuration {
+    Configuration::new(&ConfigurationSource {
         category_namespaces: &["category"],
         extension_tags: &[
             "categorytree",

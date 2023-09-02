@@ -1,4 +1,15 @@
-pub fn parse_comment(state: &mut crate::State) {
+use crate::{
+    state::{
+        OpenNodeType,
+        State,
+    },
+    Node,
+    Warning,
+    WarningMessage,
+};
+use std::borrow::Cow;
+
+pub fn parse_comment(state: &mut State) {
     let start_position = state.scan_position;
     let mut position = start_position;
     state.flush(position);
@@ -24,14 +35,14 @@ pub fn parse_comment(state: &mut crate::State) {
     }
     state.flushed_position = position;
     state.scan_position = position;
-    state.nodes.push(crate::Node::Comment {
+    state.nodes.push(Node::Comment {
         end: state.scan_position,
         start: start_position,
     });
 }
 
 fn parse_end_tag(
-    state: &mut crate::State,
+    state: &mut State,
     comment_start_position: usize,
     tag_start_position: usize,
 ) -> bool {
@@ -53,13 +64,13 @@ fn parse_end_tag(
     } + 1;
     let tag_name = &state.wiki_text[tag_name_start_position..tag_name_end_position];
     let tag_name = if tag_name.as_bytes().iter().all(u8::is_ascii_lowercase) {
-        crate::Cow::Borrowed(tag_name)
+        Cow::Borrowed(tag_name)
     } else {
         tag_name.to_ascii_lowercase().into()
     };
     let mut matched_node_index = None;
     for (open_node_index, open_node) in state.stack.iter().enumerate().rev() {
-        if let crate::OpenNodeType::Tag { name, .. } = &open_node.type_ {
+        if let OpenNodeType::Tag { name, .. } = &open_node.type_ {
             if name == &tag_name {
                 matched_node_index = Some(open_node_index);
                 break;
@@ -70,21 +81,21 @@ fn parse_end_tag(
         None => false,
         Some(open_node_index) => {
             if open_node_index < state.stack.len() - 1 {
-                state.warnings.push(crate::Warning {
+                state.warnings.push(Warning {
                     end: tag_end_position,
-                    message: crate::WarningMessage::MissingEndTagRewinding,
+                    message: WarningMessage::MissingEndTagRewinding,
                     start: tag_start_position,
                 });
                 state.stack.truncate(open_node_index + 2);
                 let open_node = state.stack.pop().unwrap();
                 state.rewind(open_node.nodes, open_node.start);
             } else {
-                state.warnings.push(crate::Warning {
+                state.warnings.push(Warning {
                     end: tag_end_position,
-                    message: crate::WarningMessage::EndTagInComment,
+                    message: WarningMessage::EndTagInComment,
                     start: tag_start_position,
                 });
-                state.nodes.push(crate::Node::Comment {
+                state.nodes.push(Node::Comment {
                     end: tag_start_position,
                     start: comment_start_position,
                 });
@@ -92,7 +103,7 @@ fn parse_end_tag(
                 state.flushed_position = tag_end_position;
                 state.scan_position = state.flushed_position;
                 let nodes = std::mem::replace(&mut state.nodes, open_node.nodes);
-                state.nodes.push(crate::Node::Tag {
+                state.nodes.push(Node::Tag {
                     end: state.scan_position,
                     name: tag_name,
                     nodes,

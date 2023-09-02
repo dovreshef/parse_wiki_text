@@ -1,4 +1,10 @@
-pub fn parse_magic_word(state: &mut crate::State, configuration: &crate::Configuration) {
+use crate::{
+    state::State,
+    Configuration,
+    Node,
+};
+
+pub fn parse_magic_word(state: &mut State, configuration: &Configuration) {
     if let Ok((match_length, _)) = configuration
         .magic_words
         .find(&state.wiki_text[state.scan_position + 2..])
@@ -10,7 +16,7 @@ pub fn parse_magic_word(state: &mut crate::State, configuration: &crate::Configu
             let scan_position = state.scan_position;
             state.flush(scan_position);
             state.flushed_position = end_position + 2;
-            state.nodes.push(crate::Node::MagicWord {
+            state.nodes.push(Node::MagicWord {
                 end: state.flushed_position,
                 start: state.scan_position,
             });

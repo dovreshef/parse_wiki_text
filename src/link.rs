@@ -1,9 +1,22 @@
+use crate::{
+    configuration::Namespace,
+    state::{
+        OpenNode,
+        OpenNodeType,
+        State,
+    },
+    Configuration,
+    Node,
+    Warning,
+    WarningMessage,
+};
+
 pub fn parse_link_end<'a>(
-    state: &mut crate::State<'a>,
-    configuration: &crate::Configuration,
+    state: &mut State<'a>,
+    configuration: &Configuration,
     start_position: usize,
-    nodes: Vec<crate::Node<'a>>,
-    namespace: Option<crate::Namespace>,
+    nodes: Vec<Node<'a>>,
+    namespace: Option<Namespace>,
     target: &'a str,
 ) {
     let inner_end_position = state.skip_whitespace_backwards(state.scan_position);
@@ -23,26 +36,26 @@ pub fn parse_link_end<'a>(
                 trail_end_position += character.len_utf8();
             }
             if trail_end_position > end {
-                text.push(crate::Node::Text {
+                text.push(Node::Text {
                     end: trail_end_position,
                     start: end,
                     value: &state.wiki_text[end..trail_end_position],
                 });
             }
-            crate::Node::Link {
+            Node::Link {
                 end: trail_end_position,
                 start,
                 target,
                 text,
             }
         }
-        Some(crate::Namespace::Category) => crate::Node::Category {
+        Some(Namespace::Category) => Node::Category {
             end,
             ordinal: text,
             start,
             target,
         },
-        Some(crate::Namespace::File) => crate::Node::Image {
+        Some(Namespace::File) => Node::Image {
             end,
             start,
             target,
@@ -51,18 +64,18 @@ pub fn parse_link_end<'a>(
     });
 }
 
-pub fn parse_link_start(state: &mut crate::State, configuration: &crate::Configuration) {
+pub fn parse_link_start(state: &mut State, configuration: &Configuration) {
     if match state.stack.last() {
-        Some(crate::OpenNode {
-            type_: crate::OpenNodeType::Link { namespace, .. },
+        Some(OpenNode {
+            type_: OpenNodeType::Link { namespace, .. },
             ..
-        }) => *namespace != Some(crate::Namespace::File),
+        }) => *namespace != Some(Namespace::File),
         _ => false,
     } {
         let open_node = state.stack.pop().unwrap();
-        state.warnings.push(crate::Warning {
+        state.warnings.push(Warning {
             end: state.scan_position,
-            message: crate::WarningMessage::InvalidLinkSyntax,
+            message: WarningMessage::InvalidLinkSyntax,
             start: open_node.start,
         });
         state.rewind(open_node.nodes, open_node.start);
@@ -101,7 +114,7 @@ pub fn parse_link_start(state: &mut crate::State, configuration: &crate::Configu
             }
             Some(b'|') => {
                 state.push_open_node(
-                    crate::OpenNodeType::Link {
+                    OpenNodeType::Link {
                         namespace,
                         target: &state.wiki_text[target_start_position..target_end_position],
                     },
@@ -115,11 +128,11 @@ pub fn parse_link_start(state: &mut crate::State, configuration: &crate::Configu
 }
 
 fn parse_end(
-    state: &mut crate::State,
-    configuration: &crate::Configuration,
+    state: &mut State,
+    configuration: &Configuration,
     target_start_position: usize,
     target_end_position: usize,
-    namespace: Option<crate::Namespace>,
+    namespace: Option<Namespace>,
 ) {
     if state.get_byte(target_end_position + 1) != Some(b']') {
         parse_unexpected_end(state, target_end_position);
@@ -130,16 +143,16 @@ fn parse_end(
     let trail_start_position = target_end_position + 2;
     let mut trail_end_position = trail_start_position;
     match namespace {
-        Some(crate::Namespace::Category) => {
-            state.nodes.push(crate::Node::Category {
+        Some(Namespace::Category) => {
+            state.nodes.push(Node::Category {
                 end: trail_end_position,
                 ordinal: vec![],
                 start: state.scan_position,
                 target: state.wiki_text[target_start_position..target_end_position].trim_end(),
             });
         }
-        Some(crate::Namespace::File) => {
-            state.nodes.push(crate::Node::Image {
+        Some(Namespace::File) => {
+            state.nodes.push(Node::Image {
                 end: trail_end_position,
                 start: state.scan_position,
                 target: state.wiki_text[target_start_position..target_end_position].trim_end(),
@@ -153,7 +166,7 @@ fn parse_end(
                 }
                 trail_end_position += character.len_utf8();
             }
-            let target_text = crate::Node::Text {
+            let target_text = Node::Text {
                 end: target_end_position,
                 start: target_start_position,
                 value: &state.wiki_text[target_start_position..target_end_position],
@@ -161,7 +174,7 @@ fn parse_end(
             let text = if trail_end_position > trail_start_position {
                 vec![
                     target_text,
-                    crate::Node::Text {
+                    Node::Text {
                         end: trail_end_position,
                         start: trail_start_position,
                         value: &state.wiki_text[trail_start_position..trail_end_position],
@@ -170,7 +183,7 @@ fn parse_end(
             } else {
                 vec![target_text]
             };
-            state.nodes.push(crate::Node::Link {
+            state.nodes.push(Node::Link {
                 end: trail_end_position,
                 start: state.scan_position,
                 target: state.wiki_text[target_start_position..target_end_position].trim_end(),
@@ -182,10 +195,10 @@ fn parse_end(
     state.scan_position = trail_end_position;
 }
 
-fn parse_unexpected_end(state: &mut crate::State, target_end_position: usize) {
-    state.warnings.push(crate::Warning {
+fn parse_unexpected_end(state: &mut State, target_end_position: usize) {
+    state.warnings.push(Warning {
         end: target_end_position,
-        message: crate::WarningMessage::InvalidLinkSyntax,
+        message: WarningMessage::InvalidLinkSyntax,
         start: state.scan_position,
     });
     state.scan_position += 1;

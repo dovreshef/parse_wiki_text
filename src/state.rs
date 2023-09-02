@@ -1,57 +1,71 @@
+use crate::{
+    configuration::Namespace,
+    line,
+    table,
+    DefinitionListItem,
+    ListItem,
+    Node,
+    Parameter,
+    TableCaption,
+    TableRow,
+    Warning,
+};
+use std::borrow::Cow;
+
 pub struct OpenNode<'a> {
-    pub nodes: Vec<crate::Node<'a>>,
+    pub nodes: Vec<Node<'a>>,
     pub start: usize,
     pub type_: OpenNodeType<'a>,
 }
 
 pub enum OpenNodeType<'a> {
     DefinitionList {
-        items: Vec<crate::DefinitionListItem<'a>>,
+        items: Vec<DefinitionListItem<'a>>,
     },
     ExternalLink,
     Heading {
         level: u8,
     },
     Link {
-        namespace: Option<crate::Namespace>,
+        namespace: Option<Namespace>,
         target: &'a str,
     },
     OrderedList {
-        items: Vec<crate::ListItem<'a>>,
+        items: Vec<ListItem<'a>>,
     },
     Parameter {
-        default: Option<Vec<crate::Node<'a>>>,
-        name: Option<Vec<crate::Node<'a>>>,
+        default: Option<Vec<Node<'a>>>,
+        name: Option<Vec<Node<'a>>>,
     },
     Preformatted,
     Table(Table<'a>),
     Tag {
-        name: crate::Cow<'a, str>,
+        name: Cow<'a, str>,
     },
     Template {
-        name: Option<Vec<crate::Node<'a>>>,
-        parameters: Vec<crate::Parameter<'a>>,
+        name: Option<Vec<Node<'a>>>,
+        parameters: Vec<Parameter<'a>>,
     },
     UnorderedList {
-        items: Vec<crate::ListItem<'a>>,
+        items: Vec<ListItem<'a>>,
     },
 }
 
 pub struct State<'a> {
     pub flushed_position: usize,
-    pub nodes: Vec<crate::Node<'a>>,
+    pub nodes: Vec<Node<'a>>,
     pub scan_position: usize,
     pub stack: Vec<OpenNode<'a>>,
-    pub warnings: Vec<crate::Warning>,
+    pub warnings: Vec<Warning>,
     pub wiki_text: &'a str,
 }
 
 pub struct Table<'a> {
-    pub attributes: Vec<crate::Node<'a>>,
-    pub before: Vec<crate::Node<'a>>,
-    pub captions: Vec<crate::TableCaption<'a>>,
-    pub child_element_attributes: Option<Vec<crate::Node<'a>>>,
-    pub rows: Vec<crate::TableRow<'a>>,
+    pub attributes: Vec<Node<'a>>,
+    pub before: Vec<Node<'a>>,
+    pub captions: Vec<TableCaption<'a>>,
+    pub child_element_attributes: Option<Vec<Node<'a>>>,
+    pub rows: Vec<TableRow<'a>>,
     pub start: usize,
     pub state: TableState,
 }
@@ -94,11 +108,11 @@ impl<'a> State<'a> {
         self.flushed_position = inner_start_position;
     }
 
-    pub fn rewind(&mut self, nodes: Vec<crate::Node<'a>>, position: usize) {
+    pub fn rewind(&mut self, nodes: Vec<Node<'a>>, position: usize) {
         self.scan_position = position + 1;
         self.nodes = nodes;
         if let Some(position_before_text) = match self.nodes.last() {
-            Some(crate::Node::Text { start, .. }) => Some(*start),
+            Some(Node::Text { start, .. }) => Some(*start),
             _ => None,
         } {
             self.nodes.pop();
@@ -115,10 +129,10 @@ impl<'a> State<'a> {
                 ..
             }) => {
                 self.scan_position -= 1;
-                crate::table::parse_table_end_of_line(self, false);
+                table::parse_table_end_of_line(self, false);
             }
             _ => {
-                crate::line::parse_beginning_of_line(self, None);
+                line::parse_beginning_of_line(self, None);
             }
         }
     }
@@ -133,13 +147,13 @@ impl<'a> State<'a> {
 }
 
 pub fn flush<'a>(
-    nodes: &mut Vec<crate::Node<'a>>,
+    nodes: &mut Vec<Node<'a>>,
     flushed_position: usize,
     end_position: usize,
     wiki_text: &'a str,
 ) {
     if end_position > flushed_position {
-        nodes.push(crate::Node::Text {
+        nodes.push(Node::Text {
             end: end_position,
             start: flushed_position,
             value: &wiki_text[flushed_position..end_position],

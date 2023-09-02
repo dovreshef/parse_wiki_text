@@ -1,8 +1,12 @@
-pub fn parse_redirect(
-    state: &mut crate::State,
-    configuration: &crate::Configuration,
-    start_position: usize,
-) {
+use crate::{
+    state::State,
+    Configuration,
+    Node,
+    Warning,
+    WarningMessage,
+};
+
+pub fn parse_redirect(state: &mut State, configuration: &Configuration, start_position: usize) {
     let mut position = match configuration
         .redirect_magic_words
         .find(&state.wiki_text[start_position + 1..])
@@ -42,9 +46,9 @@ pub fn parse_redirect(
                 break;
             }
             Some(b'|') => {
-                state.warnings.push(crate::Warning {
+                state.warnings.push(Warning {
                     end: position + 1,
-                    message: crate::WarningMessage::UselessTextInRedirect,
+                    message: WarningMessage::UselessTextInRedirect,
                     start: position,
                 });
                 target_end_position = position;
@@ -63,7 +67,7 @@ pub fn parse_redirect(
     }
     if state.get_byte(position + 1) == Some(b']') {
         position += 2;
-        state.nodes.push(crate::Node::Redirect {
+        state.nodes.push(Node::Redirect {
             end: position,
             start: start_position,
             target: &state.wiki_text[target_start_position..target_end_position],
@@ -71,9 +75,9 @@ pub fn parse_redirect(
         state.flushed_position = state.skip_whitespace_forwards(position);
         state.scan_position = state.flushed_position;
         if state.wiki_text.len() > position {
-            state.warnings.push(crate::Warning {
+            state.warnings.push(Warning {
                 end: state.wiki_text.len(),
-                message: crate::WarningMessage::TextAfterRedirect,
+                message: WarningMessage::TextAfterRedirect,
                 start: start_position,
             });
         }

@@ -1,3 +1,17 @@
+use crate::{
+    default,
+    html_entities,
+    parse,
+    trie::Trie,
+    Configuration,
+    Output,
+    TagClass,
+};
+use std::collections::{
+    HashMap,
+    HashSet,
+};
+
 /// Site specific configuration of a wiki.
 ///
 /// This is generated using the program [`fetch_mediawiki_configuration`](https://github.com/portstrom/fetch_mediawiki_configuration).
@@ -30,20 +44,20 @@ pub enum Namespace {
     File,
 }
 
-impl crate::Configuration {
+impl Configuration {
     /// Allocates and returns a new configuration based on the given site specific configuration.
     #[must_use]
     pub fn new(source: &ConfigurationSource) -> Self {
-        let mut configuration = crate::Configuration {
-            character_entities: crate::Trie::new(),
-            link_trail_character_set: crate::HashSet::new(),
-            magic_words: crate::Trie::new(),
-            namespaces: crate::Trie::new(),
-            protocols: crate::Trie::new(),
-            redirect_magic_words: crate::Trie::new(),
-            tag_name_map: crate::HashMap::new(),
+        let mut configuration = Configuration {
+            character_entities: Trie::new(),
+            link_trail_character_set: HashSet::new(),
+            magic_words: Trie::new(),
+            namespaces: Trie::new(),
+            protocols: Trie::new(),
+            redirect_magic_words: Trie::new(),
+            tag_name_map: HashMap::new(),
         };
-        for (name, character) in crate::html_entities::HTML_ENTITIES {
+        for (name, character) in html_entities::HTML_ENTITIES {
             configuration
                 .character_entities
                 .add_case_sensitive_term(&format!("{};", name), *character);
@@ -75,7 +89,7 @@ impl crate::Configuration {
         for tag_name in source.extension_tags {
             configuration
                 .tag_name_map
-                .insert(tag_name.to_string(), crate::TagClass::ExtensionTag);
+                .insert(tag_name.to_string(), TagClass::ExtensionTag);
         }
         for tag_name in [
             "abbr",
@@ -140,21 +154,21 @@ impl crate::Configuration {
         {
             configuration
                 .tag_name_map
-                .insert(tag_name.to_string(), crate::TagClass::Tag);
+                .insert(tag_name.to_string(), TagClass::Tag);
         }
         configuration
     }
 
     /// Parses wiki text into structured data.
     #[must_use]
-    pub fn parse<'a>(&self, wiki_text: &'a str) -> crate::Output<'a> {
-        crate::parse::parse(self, wiki_text)
+    pub fn parse<'a>(&self, wiki_text: &'a str) -> Output<'a> {
+        parse::parse(self, wiki_text)
     }
 }
 
-impl Default for crate::Configuration {
+impl Default for Configuration {
     /// Allocates and returns a configuration suitable for testing and quick and dirty prototyping. For correctly parsing an actual wiki, please get the correct site configuration for that particular wiki.
     fn default() -> Self {
-        crate::default::create_configuration()
+        default::create_configuration()
     }
 }

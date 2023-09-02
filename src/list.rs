@@ -1,11 +1,25 @@
-pub fn parse_list_end_of_line(state: &mut crate::State) {
+use crate::{
+    state::{
+        OpenNode,
+        OpenNodeType,
+        State,
+    },
+    DefinitionListItem,
+    DefinitionListItemType,
+    ListItem,
+    Node,
+    Warning,
+    WarningMessage,
+};
+
+pub fn parse_list_end_of_line(state: &mut State) {
     let item_end_position = state.skip_whitespace_backwards(state.scan_position);
     state.flush(item_end_position);
     state.scan_position += 1;
     let mut level = 0;
     for open_node in &state.stack {
         match open_node.type_ {
-            crate::OpenNodeType::Table { .. } | crate::OpenNodeType::Tag { .. } => level += 1,
+            OpenNodeType::Table { .. } | OpenNodeType::Tag { .. } => level += 1,
             _ => break,
         }
     }
@@ -16,13 +30,13 @@ pub fn parse_list_end_of_line(state: &mut crate::State) {
             &state.stack[level].type_,
             state.get_byte(state.scan_position),
         ) {
-            (crate::OpenNodeType::DefinitionList { .. }, Some(b':'))
-            | (crate::OpenNodeType::OrderedList { .. }, Some(b'#'))
-            | (crate::OpenNodeType::UnorderedList { .. }, Some(b'*')) => {
+            (OpenNodeType::DefinitionList { .. }, Some(b':'))
+            | (OpenNodeType::OrderedList { .. }, Some(b'#'))
+            | (OpenNodeType::UnorderedList { .. }, Some(b'*')) => {
                 level += 1;
                 state.scan_position += 1;
             }
-            (crate::OpenNodeType::DefinitionList { .. }, Some(b';')) => {
+            (OpenNodeType::DefinitionList { .. }, Some(b';')) => {
                 if term_level.is_none() {
                     term_level = Some(level);
                 }
@@ -41,9 +55,9 @@ pub fn parse_list_end_of_line(state: &mut crate::State) {
         {
             state.scan_position -= level - term_level;
             level = term_level;
-            state.warnings.push(crate::Warning {
+            state.warnings.push(Warning {
                 end: state.scan_position,
-                message: crate::WarningMessage::DefinitionTermContinuation,
+                message: WarningMessage::DefinitionTermContinuation,
                 start: state.scan_position - 1,
             });
         }
@@ -51,40 +65,40 @@ pub fn parse_list_end_of_line(state: &mut crate::State) {
     while level < state.stack.len() {
         let open_node = state.stack.pop().unwrap();
         let node = match open_node.type_ {
-            crate::OpenNodeType::DefinitionList { mut items } => {
+            OpenNodeType::DefinitionList { mut items } => {
                 {
                     let item_index = items.len() - 1;
                     let last_item = &mut items[item_index];
                     last_item.end = item_end_position;
                     last_item.nodes = std::mem::replace(&mut state.nodes, open_node.nodes);
                 }
-                crate::Node::DefinitionList {
+                Node::DefinitionList {
                     end: item_end_position,
                     items,
                     start: open_node.start,
                 }
             }
-            crate::OpenNodeType::OrderedList { mut items } => {
+            OpenNodeType::OrderedList { mut items } => {
                 {
                     let item_index = items.len() - 1;
                     let last_item = &mut items[item_index];
                     last_item.end = item_end_position;
                     last_item.nodes = std::mem::replace(&mut state.nodes, open_node.nodes);
                 }
-                crate::Node::OrderedList {
+                Node::OrderedList {
                     end: item_end_position,
                     items,
                     start: open_node.start,
                 }
             }
-            crate::OpenNodeType::UnorderedList { mut items } => {
+            OpenNodeType::UnorderedList { mut items } => {
                 {
                     let item_index = items.len() - 1;
                     let last_item = &mut items[item_index];
                     last_item.end = item_end_position;
                     last_item.nodes = std::mem::replace(&mut state.nodes, open_node.nodes);
                 }
-                crate::Node::UnorderedList {
+                Node::UnorderedList {
                     end: item_end_position,
                     items,
                     start: open_node.start,
@@ -100,8 +114,8 @@ pub fn parse_list_end_of_line(state: &mut crate::State) {
         skip_spaces(state);
     } else if level > start_level {
         match state.stack.get_mut(level - 1) {
-            Some(crate::OpenNode {
-                type_: crate::OpenNodeType::DefinitionList { items },
+            Some(OpenNode {
+                type_: OpenNodeType::DefinitionList { items },
                 ..
             }) => {
                 {
@@ -110,7 +124,7 @@ pub fn parse_list_end_of_line(state: &mut crate::State) {
                     last_item.end = item_end_position;
                     last_item.nodes = std::mem::take(&mut state.nodes);
                 }
-                items.push(crate::DefinitionListItem {
+                items.push(DefinitionListItem {
                     end: 0,
                     nodes: vec![],
                     start: state.scan_position - 1,
@@ -121,14 +135,14 @@ pub fn parse_list_end_of_line(state: &mut crate::State) {
                         .cloned()
                         == Some(b';')
                     {
-                        crate::DefinitionListItemType::Term
+                        DefinitionListItemType::Term
                     } else {
-                        crate::DefinitionListItemType::Details
+                        DefinitionListItemType::Details
                     },
                 });
             }
-            Some(crate::OpenNode {
-                type_: crate::OpenNodeType::OrderedList { items },
+            Some(OpenNode {
+                type_: OpenNodeType::OrderedList { items },
                 ..
             }) => {
                 {
@@ -137,14 +151,14 @@ pub fn parse_list_end_of_line(state: &mut crate::State) {
                     last_item.end = item_end_position;
                     last_item.nodes = std::mem::take(&mut state.nodes);
                 };
-                items.push(crate::ListItem {
+                items.push(ListItem {
                     end: 0,
                     nodes: vec![],
                     start: state.scan_position - 1,
                 });
             }
-            Some(crate::OpenNode {
-                type_: crate::OpenNodeType::UnorderedList { items },
+            Some(OpenNode {
+                type_: OpenNodeType::UnorderedList { items },
                 ..
             }) => {
                 {
@@ -153,7 +167,7 @@ pub fn parse_list_end_of_line(state: &mut crate::State) {
                     last_item.end = item_end_position;
                     last_item.nodes = std::mem::take(&mut state.nodes);
                 };
-                items.push(crate::ListItem {
+                items.push(ListItem {
                     end: 0,
                     nodes: vec![],
                     start: state.scan_position - 1,
@@ -167,36 +181,36 @@ pub fn parse_list_end_of_line(state: &mut crate::State) {
     }
 }
 
-pub fn parse_list_item_start(state: &mut crate::State) -> bool {
+pub fn parse_list_item_start(state: &mut State) -> bool {
     let open_node_type = match state.get_byte(state.scan_position) {
-        Some(b'#') => crate::OpenNodeType::OrderedList {
-            items: vec![crate::ListItem {
+        Some(b'#') => OpenNodeType::OrderedList {
+            items: vec![ListItem {
                 end: 0,
                 nodes: vec![],
                 start: state.scan_position + 1,
             }],
         },
-        Some(b'*') => crate::OpenNodeType::UnorderedList {
-            items: vec![crate::ListItem {
+        Some(b'*') => OpenNodeType::UnorderedList {
+            items: vec![ListItem {
                 end: 0,
                 nodes: vec![],
                 start: state.scan_position + 1,
             }],
         },
-        Some(b':') => crate::OpenNodeType::DefinitionList {
-            items: vec![crate::DefinitionListItem {
+        Some(b':') => OpenNodeType::DefinitionList {
+            items: vec![DefinitionListItem {
                 end: 0,
                 nodes: vec![],
                 start: state.scan_position + 1,
-                type_: crate::DefinitionListItemType::Details,
+                type_: DefinitionListItemType::Details,
             }],
         },
-        Some(b';') => crate::OpenNodeType::DefinitionList {
-            items: vec![crate::DefinitionListItem {
+        Some(b';') => OpenNodeType::DefinitionList {
+            items: vec![DefinitionListItem {
                 end: 0,
                 nodes: vec![],
                 start: state.scan_position + 1,
-                type_: crate::DefinitionListItemType::Term,
+                type_: DefinitionListItemType::Term,
             }],
         },
         _ => return false,
@@ -206,7 +220,7 @@ pub fn parse_list_item_start(state: &mut crate::State) -> bool {
     true
 }
 
-pub fn skip_spaces(state: &mut crate::State) {
+pub fn skip_spaces(state: &mut State) {
     while let Some(b'\t') | Some(b' ') = state.get_byte(state.scan_position) {
         state.scan_position += 1;
     }

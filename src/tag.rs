@@ -1,4 +1,18 @@
-pub fn parse_end_tag(state: &mut crate::State, configuration: &crate::Configuration) {
+use std::borrow::Cow;
+
+use crate::{
+    state::{
+        OpenNodeType,
+        State,
+    },
+    Configuration,
+    Node,
+    TagClass,
+    Warning,
+    WarningMessage,
+};
+
+pub fn parse_end_tag(state: &mut State, configuration: &Configuration) {
     let start_position = state.scan_position;
     let tag_name_start_position = start_position + 2;
     let mut tag_name_end_position = tag_name_start_position;
@@ -14,20 +28,20 @@ pub fn parse_end_tag(state: &mut crate::State, configuration: &crate::Configurat
     }
     let tag_name = &state.wiki_text[tag_name_start_position..tag_name_end_position];
     let tag_name = if tag_name.as_bytes().iter().all(u8::is_ascii_lowercase) {
-        crate::Cow::Borrowed(tag_name)
+        Cow::Borrowed(tag_name)
     } else {
         tag_name.to_ascii_lowercase().into()
     };
     match configuration.tag_name_map.get(&tag_name as &str) {
         None => {
             state.scan_position = tag_name_start_position;
-            state.warnings.push(crate::Warning {
+            state.warnings.push(Warning {
                 end: tag_name_end_position,
-                message: crate::WarningMessage::UnrecognizedTagName,
+                message: WarningMessage::UnrecognizedTagName,
                 start: tag_name_start_position,
             });
         }
-        Some(crate::TagClass::ExtensionTag) => {
+        Some(TagClass::ExtensionTag) => {
             let mut tag_end_position = tag_name_end_position;
             loop {
                 match state.get_byte(tag_end_position) {
@@ -35,9 +49,9 @@ pub fn parse_end_tag(state: &mut crate::State, configuration: &crate::Configurat
                     Some(b'\t') | Some(b'\n') | Some(b' ') => tag_end_position += 1,
                     _ => {
                         state.scan_position = tag_name_start_position;
-                        state.warnings.push(crate::Warning {
+                        state.warnings.push(Warning {
                             end: tag_end_position,
-                            message: crate::WarningMessage::InvalidTagSyntax,
+                            message: WarningMessage::InvalidTagSyntax,
                             start: start_position,
                         });
                         return;
@@ -46,7 +60,7 @@ pub fn parse_end_tag(state: &mut crate::State, configuration: &crate::Configurat
             }
             let mut matched_node_index = None;
             for (open_node_index, open_node) in state.stack.iter().enumerate().rev() {
-                if let crate::OpenNodeType::Tag { name, .. } = &open_node.type_ {
+                if let OpenNodeType::Tag { name, .. } = &open_node.type_ {
                     if name == &tag_name {
                         matched_node_index = Some(open_node_index);
                         break;
@@ -56,17 +70,17 @@ pub fn parse_end_tag(state: &mut crate::State, configuration: &crate::Configurat
             match matched_node_index {
                 None => {
                     state.scan_position = tag_name_start_position;
-                    state.warnings.push(crate::Warning {
+                    state.warnings.push(Warning {
                         end: tag_name_end_position,
-                        message: crate::WarningMessage::UnexpectedEndTag,
+                        message: WarningMessage::UnexpectedEndTag,
                         start: tag_name_start_position,
                     });
                 }
                 Some(open_node_index) => {
                     if open_node_index < state.stack.len() - 1 {
-                        state.warnings.push(crate::Warning {
+                        state.warnings.push(Warning {
                             end: tag_end_position,
-                            message: crate::WarningMessage::MissingEndTagRewinding,
+                            message: WarningMessage::MissingEndTagRewinding,
                             start: start_position,
                         });
                         state.stack.truncate(open_node_index + 2);
@@ -79,7 +93,7 @@ pub fn parse_end_tag(state: &mut crate::State, configuration: &crate::Configurat
                         state.flushed_position = tag_end_position;
                         state.scan_position = state.flushed_position;
                         let nodes = std::mem::replace(&mut state.nodes, open_node.nodes);
-                        state.nodes.push(crate::Node::Tag {
+                        state.nodes.push(Node::Tag {
                             end: state.scan_position,
                             name: tag_name,
                             nodes,
@@ -89,15 +103,15 @@ pub fn parse_end_tag(state: &mut crate::State, configuration: &crate::Configurat
                 }
             }
         }
-        Some(crate::TagClass::Tag) => {
+        Some(TagClass::Tag) => {
             let mut tag_end_position = tag_name_end_position;
             loop {
                 match state.get_byte(tag_end_position) {
                     None => {
                         state.scan_position = tag_name_start_position;
-                        state.warnings.push(crate::Warning {
+                        state.warnings.push(Warning {
                             end: tag_name_end_position,
-                            message: crate::WarningMessage::InvalidTagSyntax,
+                            message: WarningMessage::InvalidTagSyntax,
                             start: tag_name_start_position,
                         });
                         return;
@@ -109,7 +123,7 @@ pub fn parse_end_tag(state: &mut crate::State, configuration: &crate::Configurat
             state.flush(start_position);
             state.flushed_position = tag_end_position + 1;
             state.scan_position = state.flushed_position;
-            state.nodes.push(crate::Node::EndTag {
+            state.nodes.push(Node::EndTag {
                 end: state.scan_position,
                 name: tag_name,
                 start: start_position,
@@ -118,7 +132,7 @@ pub fn parse_end_tag(state: &mut crate::State, configuration: &crate::Configurat
     }
 }
 
-pub fn parse_start_tag(state: &mut crate::State, configuration: &crate::Configuration) {
+pub fn parse_start_tag(state: &mut State, configuration: &Configuration) {
     let start_position = state.scan_position;
     let tag_name_start_position = start_position + 1;
     let tag_name_end_position = match state.wiki_text.as_bytes()[tag_name_start_position..]
@@ -131,16 +145,16 @@ pub fn parse_start_tag(state: &mut crate::State, configuration: &crate::Configur
     };
     let tag_name = &state.wiki_text[tag_name_start_position..tag_name_end_position];
     let tag_name = if tag_name.as_bytes().iter().all(u8::is_ascii_lowercase) {
-        crate::Cow::Borrowed(tag_name)
+        Cow::Borrowed(tag_name)
     } else {
         tag_name.to_ascii_lowercase().into()
     };
     match configuration.tag_name_map.get(&tag_name as &str) {
         None => {
             state.scan_position = tag_name_start_position;
-            state.warnings.push(crate::Warning {
+            state.warnings.push(Warning {
                 end: tag_name_end_position,
-                message: crate::WarningMessage::UnrecognizedTagName,
+                message: WarningMessage::UnrecognizedTagName,
                 start: tag_name_start_position,
             });
         }
@@ -151,21 +165,21 @@ pub fn parse_start_tag(state: &mut crate::State, configuration: &crate::Configur
         {
             None => {
                 state.scan_position = tag_name_start_position;
-                state.warnings.push(crate::Warning {
+                state.warnings.push(Warning {
                     end: tag_name_end_position,
-                    message: crate::WarningMessage::InvalidTagSyntax,
+                    message: WarningMessage::InvalidTagSyntax,
                     start: state.scan_position,
                 });
             }
             Some(tag_end_position) => {
                 let tag_end_position = tag_name_end_position + tag_end_position + 1;
                 match tag_class {
-                    crate::TagClass::ExtensionTag => {
+                    TagClass::ExtensionTag => {
                         if state.get_byte(tag_end_position - 2) == Some(b'/') {
                             state.flush(start_position);
                             state.flushed_position = tag_end_position;
                             state.scan_position = state.flushed_position;
-                            state.nodes.push(crate::Node::Tag {
+                            state.nodes.push(Node::Tag {
                                 end: tag_end_position,
                                 name: tag_name,
                                 nodes: vec![],
@@ -183,18 +197,18 @@ pub fn parse_start_tag(state: &mut crate::State, configuration: &crate::Configur
                                 }
                                 _ => {
                                     state.push_open_node(
-                                        crate::OpenNodeType::Tag { name: tag_name },
+                                        OpenNodeType::Tag { name: tag_name },
                                         tag_end_position,
                                     );
                                 }
                             }
                         }
                     }
-                    crate::TagClass::Tag => {
+                    TagClass::Tag => {
                         state.flush(start_position);
                         state.flushed_position = tag_end_position;
                         state.scan_position = state.flushed_position;
-                        state.nodes.push(crate::Node::StartTag {
+                        state.nodes.push(Node::StartTag {
                             end: tag_end_position,
                             name: tag_name,
                             start: start_position,
@@ -207,7 +221,7 @@ pub fn parse_start_tag(state: &mut crate::State, configuration: &crate::Configur
 }
 
 fn parse_plain_text_tag(
-    state: &mut crate::State,
+    state: &mut State,
     position_before_start_tag: usize,
     position_after_start_tag: usize,
     start_tag_name: &str,
@@ -216,9 +230,9 @@ fn parse_plain_text_tag(
         match state.get_byte(state.scan_position) {
             None => {
                 state.scan_position = position_before_start_tag + 1;
-                state.warnings.push(crate::Warning {
+                state.warnings.push(Warning {
                     end: position_after_start_tag,
-                    message: crate::WarningMessage::MissingEndTagRewinding,
+                    message: WarningMessage::MissingEndTagRewinding,
                     start: position_before_start_tag,
                 });
                 break;
@@ -242,7 +256,7 @@ fn parse_plain_text_tag(
 }
 
 fn parse_plain_text_end_tag(
-    state: &mut crate::State,
+    state: &mut State,
     position_before_start_tag: usize,
     position_after_start_tag: usize,
     start_tag_name: &str,
@@ -267,13 +281,13 @@ fn parse_plain_text_end_tag(
     } + 1;
     let end_tag_name = &state.wiki_text[position_before_end_tag_name..position_after_end_tag_name];
     let end_tag_name = if end_tag_name.as_bytes().iter().all(u8::is_ascii_lowercase) {
-        crate::Cow::Borrowed(end_tag_name)
+        Cow::Borrowed(end_tag_name)
     } else {
         end_tag_name.to_ascii_lowercase().into()
     };
     if *start_tag_name == end_tag_name {
         let nodes = if position_after_start_tag < position_before_end_tag {
-            vec![crate::Node::Text {
+            vec![Node::Text {
                 end: position_before_end_tag,
                 start: position_after_start_tag,
                 value: &state.wiki_text[position_after_start_tag..position_before_end_tag],
@@ -283,7 +297,7 @@ fn parse_plain_text_end_tag(
         };
         state.flushed_position = position_after_end_tag;
         state.scan_position = position_after_end_tag;
-        state.nodes.push(crate::Node::Tag {
+        state.nodes.push(Node::Tag {
             end: position_after_end_tag,
             name: end_tag_name,
             nodes,
@@ -293,7 +307,7 @@ fn parse_plain_text_end_tag(
     }
     let mut found = false;
     for open_node in &state.stack {
-        if let crate::OpenNodeType::Tag { name, .. } = &open_node.type_ {
+        if let OpenNodeType::Tag { name, .. } = &open_node.type_ {
             if name == &end_tag_name {
                 found = true;
                 break;
@@ -301,9 +315,9 @@ fn parse_plain_text_end_tag(
         }
     }
     if found {
-        state.warnings.push(crate::Warning {
+        state.warnings.push(Warning {
             end: position_before_end_tag,
-            message: crate::WarningMessage::MissingEndTagRewinding,
+            message: WarningMessage::MissingEndTagRewinding,
             start: position_before_start_tag,
         });
         state.scan_position = position_before_start_tag + 1;
