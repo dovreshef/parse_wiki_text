@@ -79,7 +79,7 @@ impl<'a> State<'a> {
     }
 
     pub fn get_byte(&self, position: usize) -> Option<u8> {
-        self.wiki_text.as_bytes().get(position).cloned()
+        self.wiki_text.as_bytes().get(position).copied()
     }
 
     pub fn push_open_node(&mut self, type_: OpenNodeType<'a>, inner_start_position: usize) {
@@ -148,17 +148,19 @@ pub fn flush<'a>(
 }
 
 pub fn skip_whitespace_backwards(wiki_text: &str, mut position: usize) -> usize {
-    while position > 0 && matches!(wiki_text.as_bytes()[position - 1], b'\t' | b'\n' | b' ') {
+    let wiki_text = wiki_text.as_bytes();
+    while position > 0 && wiki_text[position - 1].is_ascii_whitespace() {
         position -= 1;
     }
     position
 }
 
 pub fn skip_whitespace_forwards(wiki_text: &str, mut position: usize) -> usize {
-    while matches!(
-        wiki_text.as_bytes().get(position).cloned(),
-        Some(b'\t') | Some(b'\n') | Some(b' ')
-    ) {
+    let wiki_text = wiki_text.as_bytes();
+    while wiki_text
+        .get(position)
+        .map_or(false, |c| c.is_ascii_whitespace())
+    {
         position += 1;
     }
     position
